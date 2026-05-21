@@ -65,11 +65,14 @@ def storage_get(path: str):
     key = init_storage()
     if not key:
         raise HTTPException(503, "Object storage unavailable")
-    r = requests.get(f"{STORAGE_URL}/objects/{path}",
-                     headers={"X-Storage-Key": key}, timeout=60)
-    if r.status_code == 404:
+    try:
+        r = requests.get(f"{STORAGE_URL}/objects/{path}",
+                         headers={"X-Storage-Key": key}, timeout=60)
+    except requests.RequestException as e:
+        raise HTTPException(502, f"Storage error: {e}")
+    if r.status_code >= 400:
+        # Object storage returns 404 OR 500 for missing keys; treat any error as not-found.
         raise HTTPException(404, "File not found")
-    r.raise_for_status()
     return r.content, r.headers.get("Content-Type", "application/octet-stream")
 
 limiter = Limiter(key_func=get_remote_address)
