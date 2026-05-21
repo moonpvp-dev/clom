@@ -1,0 +1,62 @@
+{
+  "theme": "dark",
+  "archetype": "5 (Jewel & Luxury)",
+  "brand_name": "CurlLoom",
+  "colors": {
+    "background": "#0A0A0C",
+    "surface": "#121217",
+    "surface_glass": "rgba(255, 255, 255, 0.03)",
+    "text_primary": "#FAFAFA",
+    "text_secondary": "#A1A1AA",
+    "accent_primary": "#8B5CF6",
+    "accent_subtle": "#581C87",
+    "accent_glow": "rgba(139, 92, 246, 0.15)"
+  },
+  "typography": {
+    "heading_font": "Manrope",
+    "body_font": "Satoshi",
+    "logo_font": "Cabinet Grotesk",
+    "heading_classes": "font-bold tracking-tighter text-white",
+    "body_classes": "text-zinc-400 leading-relaxed"
+  },
+  "styling_rules": {
+    "global_background": "radial-gradient(circle at top left, rgba(139,92,246,0.12), transparent 40%), radial-gradient(circle at bottom right, rgba(88,28,135,0.12), transparent 40%), #0A0A0C",
+    "cards": "bg-gradient-to-br from-[#121217] to-[#0A0A0C] border border-white/5 shadow-[0_20px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl rounded-3xl",
+    "buttons": {
+      "primary": "bg-violet-600 hover:bg-violet-500 text-white rounded-full px-8 py-4 text-sm font-semibold tracking-widest uppercase transition-all shadow-[0_0_20px_rgba(124,58,237,0.3)]",
+      "secondary": "bg-transparent border border-white/20 hover:border-white/40 text-white rounded-full px-8 py-4 text-sm font-semibold tracking-widest uppercase transition-all"
+    }
+  },
+  "abstract_imagery_instructions": {
+    "CRITICAL_RULE": "ABSOLUTELY NO PHOTO URLs ALLOWED. DO NOT USE ANY PLACEHOLDER IMAGES. EVERYTHING MUST BE CSS OR SVG.",
+    "product_bottles": "Create CSS-only representations of bottles. Use a container with `w-24 h-64 sm:w-32 sm:h-80 rounded-[40px] bg-gradient-to-b from-zinc-800 via-zinc-900 to-black border border-white/10 relative overflow-hidden shadow-2xl`. Add a smaller nested div at the top for the cap `w-10 h-12 bg-zinc-950 rounded-t-lg mx-auto -mt-12`. Add an absolute positioned glowing orb behind the bottle for premium lighting effects: `absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-violet-600/30 blur-3xl rounded-full -z-10`.",
+    "swirl_motifs": "Use SVG paths to draw elegant, overlapping curves (resembling hair strands/curls). Animate them using Framer Motion `initial={{ pathLength: 0 }} animate={{ pathLength: 1 }}`. Apply `stroke-violet-500/20` and `fill-transparent`. Position these SVGs absolutely in the background of Hero and Quote sections.",
+    "noise_texture": "Implement a site-wide noise overlay to kill digital flatness. A fixed `div` covering the viewport with `pointer-events-none z-50 opacity-[0.03] mix-blend-overlay` and an SVG filter generating feColorMatrix noise.",
+    "status_labels": "For product cards, use small absolute positioned badges: `absolute top-4 right-4 bg-white/10 backdrop-blur-md border border-white/20 text-[10px] tracking-[0.2em] uppercase px-3 py-1 rounded-full text-white`."
+  },
+  "pages_and_components": [
+    "Home: Hero with animated SVG swirl, dual CTA. Trust strip (lucide icons). Formula philosophy bento grid.",
+    "Shop/Products: CSS abstract bottle grid. Status labels (Testing, Planned, Coming Soon).",
+    "Product Detail: 2-column layout. Sticky CSS bottle (left), scrolling specs/ingredients (right).",
+    "Curl Quiz: Interactive Framer Motion multi-step form. Large typography. Data collection.",
+    "About: Founder story using typography and abstract layout. Text-based wordmark logo emphasis.",
+    "Ingredients: Minimalist periodic-table style grid of ingredients.",
+    "Testing & Safety: Clinical, Swiss-grid layout for data transparency.",
+    "Athletes & Active Curls: High-contrast typography sections, 'Performance Pro' energy translated to dark luxury.",
+    "Perm Care: Accordion-heavy FAQ style layout.",
+    "FAQ: Clean Shadcn Accordion customized for dark mode.",
+    "Contact: Minimalist multi-field form (Shadcn customized).",
+    "Shipping & Returns, Privacy Policy, Terms of Service: Beautiful text-heavy markdown-style layouts with max-w-3xl.",
+    "Global: Sticky glassmorphism header. Massive py-32 footer with legal links."
+  ],
+  "accessibility": {
+    "data_testid": "MANDATORY on all interactive elements (buttons, links, form inputs, quiz choices).",
+    "contrast": "Ensure white/zinc text passes WCAG AA against the deep background.",
+    "motion": "Respect prefers-reduced-motion for the SVG tracing animations."
+  },
+  "spacing_and_layout": {
+    "general": "Extremely generous padding. Use py-24 or py-32 for section vertical rhythm.",
+    "bento_grids": "For philosophy and features, use Mode A (Tetris grid) mixing col-span-4, col-span-8 to create asymmetrical tension.",
+    "containers": "max-w-7xl mx-auto px-6 lg:px-12."
+  }
+}
