@@ -1,33 +1,69 @@
-export default function Bottle({ accent = "#8B5CF6", label = "CL", size = "md" }) {
+export default function Bottle({ accent = "#8B5CF6", label = "Leave-In", size = "md" }) {
   const sizes = {
-    sm: { w: 90, h: 180, font: "text-[10px]", cap: 40 },
-    md: { w: 140, h: 280, font: "text-xs", cap: 64 },
-    lg: { w: 200, h: 380, font: "text-sm", cap: 88 },
+    sm: { box: 180, name: "text-[10px]", divider: 28 },
+    md: { box: 260, name: "text-[11px]", divider: 36 },
+    lg: { box: 360, name: "text-sm", divider: 48 },
   };
   const s = sizes[size] || sizes.md;
+
   return (
-    <div className="relative inline-block" style={{ width: s.w, height: s.h + 30 }} aria-hidden="true">
-      <div className="cl-orb" style={{ width: s.w * 1.6, height: s.h * 0.6, background: accent, opacity: 0.35, top: "20%", left: "-30%", zIndex: 0 }} />
+    <div
+      className="relative inline-block"
+      style={{ width: s.box, height: s.box }}
+      aria-hidden="true"
+    >
+      {/* Glow behind */}
       <div
-        className="cl-bottle"
+        className="absolute inset-0 rounded-3xl"
         style={{
-          width: s.w, height: s.h,
-          background: `linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0) 50%), linear-gradient(180deg, #1a1a20, #0d0d12 60%, #050508)`,
+          background: `radial-gradient(circle at 50% 50%, ${accent}55, transparent 65%)`,
+          filter: "blur(30px)",
+          transform: "scale(0.9)",
+          zIndex: 0,
+        }}
+      />
+
+      {/* Bottle image */}
+      <img
+        src="/brand/bottle.png"
+        alt=""
+        className="relative w-full h-full object-cover rounded-3xl select-none"
+        draggable={false}
+        style={{
+          filter: "drop-shadow(0 30px 40px rgba(0,0,0,0.6))",
+          zIndex: 1,
+        }}
+      />
+
+      {/* Solid mask covering the entire text band on the original image */}
+      <div
+        className="absolute flex flex-col items-center justify-center text-center pointer-events-none"
+        style={{
+          left: "15%",
+          right: "15%",
+          top: "55%",
+          bottom: "8%",
+          background: "#070709",
+          borderRadius: "10px",
+          boxShadow: "0 0 60px 12px #070709",
+          zIndex: 2,
         }}
       >
-        <div className="cl-bottle-cap" style={{ width: s.cap, top: -24 }} />
         <div
-          className="absolute inset-x-0 bottom-1/4 mx-auto flex flex-col items-center justify-center text-center px-3"
+          className={`${s.name} tracking-[0.35em] font-semibold uppercase`}
           style={{ color: accent }}
         >
-          <div className={`${s.font} tracking-[0.3em] font-semibold uppercase opacity-80`}>CurlLoom</div>
-          <div className="mt-2 h-px w-8 bg-white/20" />
-          <div className={`${s.font} tracking-widest mt-2 text-white/90 uppercase`}>{label}</div>
+          CurlLoom
         </div>
         <div
-          className="absolute bottom-0 inset-x-0 h-1/3 opacity-60"
-          style={{ background: `linear-gradient(180deg, transparent, ${accent}33)` }}
+          className="my-2 h-px bg-white/25"
+          style={{ width: s.divider }}
         />
+        <div
+          className={`${s.name} tracking-[0.25em] font-medium uppercase text-white/95 leading-tight px-2`}
+        >
+          {label}
+        </div>
       </div>
     </div>
   );
