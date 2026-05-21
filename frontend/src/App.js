@@ -26,7 +26,7 @@ function App() {
     <BrowserRouter>
       <NoiseOverlay />
       <Header />
-      <main className="relative z-10 min-h-screen pt-20">
+      <main className="relative z-10 min-h-screen pt-24 lg:pt-28">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/shop" element={<Shop />} />

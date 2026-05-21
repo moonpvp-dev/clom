@@ -35,29 +35,29 @@ export default function Home() {
         <div className="cl-orb" style={{ width: 400, height: 400, background: "#581C87", opacity: 0.3, bottom: -100, right: -100 }} />
         <Swirl className="absolute inset-0 w-full h-full opacity-30 pointer-events-none" />
 
-        <div className="max-w-7xl mx-auto px-6 lg:px-12 pt-20 pb-28 lg:pt-32 lg:pb-36 relative">
-          <div className="grid lg:grid-cols-12 gap-12 items-center">
+        <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 pt-24 pb-36 lg:pt-40 lg:pb-48 relative">
+          <div className="grid lg:grid-cols-12 gap-16 items-center">
             <div className="lg:col-span-7">
-              <div className="inline-flex items-center gap-2 cl-glass rounded-full px-4 py-1.5 mb-7">
+              <div className="inline-flex items-center gap-2 cl-glass rounded-full px-5 py-2 mb-9">
                 <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
-                <span className="text-[11px] tracking-[0.25em] uppercase text-zinc-300">Early access open</span>
+                <span className="text-[11px] tracking-[0.3em] uppercase text-zinc-300">Early access open</span>
               </div>
 
-              <h1 data-testid="hero-headline" className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white leading-[1.02] tracking-tight">
+              <h1 data-testid="hero-headline" className="text-5xl sm:text-6xl lg:text-7xl xl:text-[88px] font-bold text-white leading-[1.02] tracking-[-0.035em]">
                 Lightweight Curl Care
                 <br />
                 <span className="bg-gradient-to-r from-violet-300 via-violet-400 to-violet-500 bg-clip-text text-transparent">Built for Real Life.</span>
               </h1>
 
-              <p className="mt-7 text-lg text-zinc-400 max-w-xl leading-relaxed">
+              <p className="mt-9 text-lg lg:text-xl text-zinc-400 max-w-xl leading-[1.75]">
                 CurlLoom is developing performance-focused hair care for curls, waves, coils, perms, and active routines — designed for moisture, definition, and low buildup.
               </p>
 
-              <div className="mt-9 flex flex-wrap gap-3">
-                <a href="#early-access" data-testid="hero-cta-primary" className="cl-btn-primary text-white rounded-full px-7 py-4 text-sm font-semibold tracking-wider uppercase">
+              <div className="mt-12 flex flex-wrap gap-4">
+                <a href="#early-access" data-testid="hero-cta-primary" className="cl-btn-primary text-white rounded-full px-9 py-5 text-sm font-semibold uppercase">
                   Join Early Access
                 </a>
-                <Link to="/quiz" data-testid="hero-cta-secondary" className="cl-btn-secondary text-white rounded-full px-7 py-4 text-sm font-semibold tracking-wider uppercase">
+                <Link to="/quiz" data-testid="hero-cta-secondary" className="cl-btn-secondary text-white rounded-full px-9 py-5 text-sm font-semibold uppercase">
                   Take the Curl Quiz
                 </Link>
               </div>
@@ -74,7 +74,7 @@ export default function Home() {
 
         {/* Trust strip */}
         <div className="border-y border-white/5 bg-black/30 backdrop-blur">
-          <div className="max-w-7xl mx-auto px-6 lg:px-12 py-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 py-10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6">
             {TRUST.map(({ icon: Icon, label }) => (
               <div key={label} data-testid={`trust-${label.toLowerCase().replace(/\s/g, "-")}`} className="flex items-center gap-3 text-zinc-400">
                 <Icon size={16} className="text-violet-400" />
@@ -87,17 +87,17 @@ export default function Home() {
 
       {/* PROBLEM */}
       <Section eyebrow="The problem" title="Curl shouldn't mean compromise." lead="Most curl products force a choice. Some are too heavy. Some leave buildup. Some feel greasy. Some don't last through sweat, wind, or a real day.">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
           {[
             { t: "Too heavy", d: "Bricks of butter that flatten waves and second-day curl." },
             { t: "Leaves buildup", d: "Layered residue that dulls definition and irritates scalp." },
             { t: "Greasy finish", d: "Hair that looks oiled, not styled." },
             { t: "Breaks down fast", d: "Sweat, wind, and helmets erase the look by noon." },
           ].map((x) => (
-            <div key={x.t} className="cl-glass rounded-2xl p-6">
-              <div className="text-violet-300 text-xs tracking-widest uppercase mb-3">No thanks</div>
-              <div className="text-white font-semibold text-lg">{x.t}</div>
-              <p className="mt-3 text-sm text-zinc-400 leading-relaxed">{x.d}</p>
+            <div key={x.t} className="cl-glass rounded-3xl p-8 lg:p-10">
+              <div className="text-violet-300 text-xs tracking-[0.3em] uppercase mb-4">No thanks</div>
+              <div className="text-white font-semibold text-lg lg:text-xl">{x.t}</div>
+              <p className="mt-4 text-sm text-zinc-400 leading-[1.75]">{x.d}</p>
             </div>
           ))}
         </div>
@@ -105,16 +105,16 @@ export default function Home() {
 
       {/* SOLUTION */}
       <Section eyebrow="Our approach" title="Balance, not bulk." lead="CurlLoom is being built to balance hydration, definition, and clean feel — without relying on heavy butters or excessive oils. Each formula is designed to do its job, then get out of the way.">
-        <div className="grid lg:grid-cols-3 gap-4">
+        <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
           {[
             { n: "01", t: "Moisture without weight", d: "Humectants and lightweight emollients chosen for slip — not gloss alone." },
             { n: "02", t: "Definition that moves", d: "Polymers tuned to support shape while leaving room for touch." },
             { n: "03", t: "Clean finish, low residue", d: "Designed so a Tuesday workout doesn't unravel Monday's wash day." },
           ].map((x) => (
-            <div key={x.n} className="cl-glass-strong rounded-3xl p-8">
+            <div key={x.n} className="cl-glass-strong rounded-3xl p-10 lg:p-12">
               <div className="text-[11px] tracking-[0.3em] text-violet-300/70">{x.n}</div>
-              <div className="mt-4 text-2xl font-bold text-white">{x.t}</div>
-              <p className="mt-3 text-zinc-400 leading-relaxed">{x.d}</p>
+              <div className="mt-5 text-2xl lg:text-3xl font-bold text-white tracking-[-0.02em]">{x.t}</div>
+              <p className="mt-5 text-zinc-400 leading-[1.75]">{x.d}</p>
             </div>
           ))}
         </div>
@@ -122,18 +122,18 @@ export default function Home() {
 
       {/* PRODUCT PREVIEW */}
       <Section eyebrow="Future products" title="A complete routine, in development." lead="Six products designed to work together. Status shown is honest — some are still in formulation.">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-7 lg:gap-8">
           {PRODUCTS.map((p) => (
-            <Link key={p.slug} to={`/shop/${p.slug}`} data-testid={`product-card-${p.slug}`} className="group cl-glass rounded-3xl p-7 hover:border-violet-500/30 transition-all">
-              <div className="flex items-start justify-between mb-6">
+            <Link key={p.slug} to={`/shop/${p.slug}`} data-testid={`product-card-${p.slug}`} className="group cl-glass rounded-3xl p-8 lg:p-10 hover:border-violet-500/30 transition-all">
+              <div className="flex items-start justify-between mb-8">
                 <StatusBadge status={p.status} />
               </div>
-              <div className="flex justify-center mb-6">
+              <div className="flex justify-center mb-8">
                 <Bottle accent={p.accent} label={p.name.split(" ")[0]} size="sm" />
               </div>
-              <div className="text-xl font-bold text-white">{p.name}</div>
-              <p className="mt-2 text-sm text-zinc-400 leading-relaxed min-h-[40px]">{p.short}</p>
-              <div className="mt-5 pt-5 border-t border-white/5 flex items-center justify-between">
+              <div className="text-xl lg:text-2xl font-bold text-white tracking-[-0.02em]">{p.name}</div>
+              <p className="mt-3 text-sm text-zinc-400 leading-[1.75] min-h-[48px]">{p.short}</p>
+              <div className="mt-7 pt-6 border-t border-white/5 flex items-center justify-between">
                 <span className="text-xs text-zinc-500">Best for: {p.bestFor}</span>
                 <span className="text-xs text-violet-300 group-hover:text-violet-200">Learn more →</span>
               </div>
@@ -144,12 +144,12 @@ export default function Home() {
 
       {/* PHILOSOPHY */}
       <Section eyebrow="Formula philosophy" title="Purpose over hype." lead="CurlLoom isn't built around stuffing a label with trendy ingredients. Each ingredient earns its place — hydration, slip, structure, preservation, stability, or performance.">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {PHILOSOPHY.map((p, i) => (
-            <div key={p.title} className="cl-glass rounded-2xl p-7">
-              <div className="text-violet-400 text-xs tracking-widest font-mono">0{i + 1}</div>
-              <div className="mt-3 text-lg font-semibold text-white">{p.title}</div>
-              <p className="mt-3 text-sm text-zinc-400 leading-relaxed">{p.body}</p>
+            <div key={p.title} className="cl-glass rounded-3xl p-8 lg:p-10">
+              <div className="text-violet-400 text-xs tracking-[0.3em] font-mono">0{i + 1}</div>
+              <div className="mt-4 text-lg lg:text-xl font-semibold text-white">{p.title}</div>
+              <p className="mt-4 text-sm text-zinc-400 leading-[1.75]">{p.body}</p>
             </div>
           ))}
         </div>

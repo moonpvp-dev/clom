@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Header, Depends
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -27,6 +27,7 @@ db = client[os.environ['DB_NAME']]
 
 resend.api_key = os.environ.get('RESEND_API_KEY', '')
 SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
+ADMIN_TOKEN = os.environ.get('ADMIN_TOKEN', '')
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -51,6 +52,38 @@ def _spawn(coro):
 def _make_ref_code(n: int = 6) -> str:
     alphabet = string.ascii_uppercase + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(n))
+
+
+def require_admin(authorization: Optional[str] = Header(None)):
+    if not ADMIN_TOKEN:
+        raise HTTPException(503, "Admin token not configured")
+    expected = f"Bearer {ADMIN_TOKEN}"
+    if not authorization or not secrets.compare_digest(authorization, expected):
+        raise HTTPException(401, "Unauthorized")
+    return True
+
+
+async def next_queue_position() -> int:
+    """Atomic counter — safe under concurrent inserts."""
+    res = await db.counters.find_one_and_update(
+        {"_id": "early_access_position"},
+        {"$inc": {"value": 1}},
+        upsert=True,
+        return_document=True,
+    )
+    return res["value"]
+
+
+@app.on_event("startup")
+async def on_startup():
+    # Unique index on ref_code prevents duplicate codes under concurrency
+    await db.early_access.create_index("ref_code", unique=True, sparse=True)
+    await db.early_access.create_index("email")
+    # Backfill counter to current count so newly issued positions don't collide
+    existing = await db.counters.find_one({"_id": "early_access_position"})
+    if existing is None:
+        current = await db.early_access.count_documents({})
+        await db.counters.insert_one({"_id": "early_access_position", "value": current})
 
 
 # -------- Models --------
@@ -130,23 +163,28 @@ async def root():
 @api_router.post("/early-access")
 @limiter.limit("5/minute")
 async def early_access(request: Request, payload: EarlyAccessIn):
-    ref_code = _make_ref_code()
-    # Ensure uniqueness (cheap loop)
-    while await db.early_access.find_one({"ref_code": ref_code}, {"_id": 1}):
+    # Atomic queue position
+    total = await next_queue_position()
+
+    # Insert with unique-index retry on collision
+    from pymongo.errors import DuplicateKeyError
+    for _ in range(5):
         ref_code = _make_ref_code()
-
-    # Count current signups for queue position
-    total = await db.early_access.count_documents({}) + 1
-
-    doc = {
-        "id": str(uuid.uuid4()),
-        **payload.model_dump(),
-        "ref_code": ref_code,
-        "referral_count": 0,
-        "queue_position": total,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    await db.early_access.insert_one(dict(doc))
+        doc = {
+            "id": str(uuid.uuid4()),
+            **payload.model_dump(),
+            "ref_code": ref_code,
+            "referral_count": 0,
+            "queue_position": total,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        try:
+            await db.early_access.insert_one(dict(doc))
+            break
+        except DuplicateKeyError:
+            continue
+    else:
+        raise HTTPException(500, "Could not generate unique ref code")
 
     # If they were referred, bump the referrer
     if payload.referred_by:
@@ -176,8 +214,9 @@ async def early_access(request: Request, payload: EarlyAccessIn):
 
 
 @api_router.get("/referral/{code}")
-async def referral_info(code: str):
-    doc = await db.early_access.find_one({"ref_code": code.upper()}, {"_id": 0, "name": 1, "referral_count": 1, "queue_position": 1})
+@limiter.limit("30/minute")
+async def referral_info(request: Request, code: str):
+    doc = await db.early_access.find_one({"ref_code": code.upper()}, {"_id": 0, "referral_count": 1})
     if not doc:
         raise HTTPException(404, "Code not found")
     return doc
@@ -253,19 +292,19 @@ async def waitlist(request: Request, payload: WaitlistIn):
 
 
 @api_router.get("/admin/early-access")
-async def list_early_access():
+async def list_early_access(_: bool = Depends(require_admin)):
     return await db.early_access.find({}, {"_id": 0}).to_list(1000)
 
 @api_router.get("/admin/contacts")
-async def list_contacts():
+async def list_contacts(_: bool = Depends(require_admin)):
     return await db.contacts.find({}, {"_id": 0}).to_list(1000)
 
 @api_router.get("/admin/quiz")
-async def list_quiz():
+async def list_quiz(_: bool = Depends(require_admin)):
     return await db.quiz_results.find({}, {"_id": 0}).to_list(1000)
 
 @api_router.get("/admin/waitlist")
-async def list_waitlist():
+async def list_waitlist(_: bool = Depends(require_admin)):
     return await db.waitlist.find({}, {"_id": 0}).to_list(1000)
 
 

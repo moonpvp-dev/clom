@@ -4,9 +4,9 @@ import Wordmark from "./Wordmark";
 
 export default function Footer() {
   return (
-    <footer className="relative z-10 mt-32 border-t border-white/5 bg-[#08080A]">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12 py-20">
-        <div className="grid lg:grid-cols-12 gap-12">
+    <footer className="relative z-10 mt-44 border-t border-white/5 bg-[#08080A]">
+      <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 py-28">
+        <div className="grid lg:grid-cols-12 gap-16">
           <div className="lg:col-span-5">
             <Wordmark size="lg" testid="footer-logo" />
             <p className="mt-5 text-zinc-400 text-sm leading-relaxed max-w-md">

@@ -22,18 +22,18 @@ export default function Shop() {
         ))}
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-7 lg:gap-8">
         {filtered.map((p) => (
-          <Link key={p.slug} to={`/shop/${p.slug}`} data-testid={`shop-card-${p.slug}`} className="group cl-glass rounded-3xl p-7 hover:border-violet-500/30 transition-all">
-            <div className="flex items-start justify-between mb-6">
+          <Link key={p.slug} to={`/shop/${p.slug}`} data-testid={`shop-card-${p.slug}`} className="group cl-glass rounded-3xl p-8 lg:p-10 hover:border-violet-500/30 transition-all">
+            <div className="flex items-start justify-between mb-8">
               <StatusBadge status={p.status} />
             </div>
-            <div className="flex justify-center mb-6">
+            <div className="flex justify-center mb-8">
               <Bottle accent={p.accent} label={p.name.split(" ")[0]} />
             </div>
-            <div className="text-xl font-bold text-white">{p.name}</div>
-            <p className="mt-2 text-sm text-zinc-400 leading-relaxed min-h-[40px]">{p.short}</p>
-            <div className="mt-5 pt-5 border-t border-white/5 flex items-center justify-between">
+            <div className="text-xl lg:text-2xl font-bold text-white tracking-[-0.02em]">{p.name}</div>
+            <p className="mt-3 text-sm text-zinc-400 leading-[1.75] min-h-[48px]">{p.short}</p>
+            <div className="mt-7 pt-6 border-t border-white/5 flex items-center justify-between">
               <span className="text-xs text-zinc-500">Best for: {p.bestFor}</span>
               <span className="text-xs text-violet-300 group-hover:text-violet-200">Learn more →</span>
             </div>

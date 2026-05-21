@@ -19,10 +19,10 @@ export default function Header() {
 
   return (
     <header className="fixed top-0 inset-x-0 z-50 cl-glass">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12 h-20 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 h-24 flex items-center justify-between">
         <Wordmark testid="header-logo" />
 
-        <nav className="hidden lg:flex items-center gap-7">
+        <nav className="hidden lg:flex items-center gap-9">
           {NAV.map((n) => (
             <NavLink
               key={n.to}
@@ -48,7 +48,7 @@ export default function Header() {
           <Link
             to="/#early-access"
             data-testid="header-join-early-access"
-            className="hidden sm:inline-flex cl-btn-primary text-white rounded-full px-5 py-2.5 text-xs font-semibold tracking-wider uppercase"
+            className="hidden sm:inline-flex cl-btn-primary text-white rounded-full px-6 py-3 text-xs font-semibold uppercase"
           >
             Join Early Access
           </Link>
