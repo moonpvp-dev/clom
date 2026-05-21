@@ -18,6 +18,7 @@ import Contact from "@/pages/Contact";
 import Shipping from "@/pages/Shipping";
 import Privacy from "@/pages/Privacy";
 import Terms from "@/pages/Terms";
+import Admin from "@/pages/Admin";
 
 import "@/App.css";
 
@@ -42,6 +43,7 @@ function App() {
           <Route path="/shipping" element={<Shipping />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
+          <Route path="/admin" element={<Admin />} />
         </Routes>
       </main>
       <Footer />
