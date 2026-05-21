@@ -48,13 +48,20 @@ Premium dark-mode marketing site for **CurlLoom**, an early-stage textured hair 
 - ✅ **Hard timeout on email send** (`asyncio.wait_for(..., timeout=10)`) + tracked background task registry (`_BG` set) so failures or rate-limits in Resend can never hang an API response
 - ✅ 100% E2E test pass (19/19 backend tests + all 14 frontend routes)
 
+### Iteration 3 (2026-02, same session)
+- ✅ **Admin auth**: all `/api/admin/*` endpoints now require `Authorization: Bearer <ADMIN_TOKEN>`, validated with `secrets.compare_digest`. Token stored in `/app/backend/.env`
+- ✅ **Atomic queue counter**: `db.counters.findOneAndUpdate({_id: 'early_access_position'}, {$inc: {value: 1}})` — race-safe under concurrent inserts
+- ✅ **Unique ref_code index**: `db.early_access.create_index('ref_code', unique=True, sparse=True)` on startup, retry loop (5 attempts) on `DuplicateKeyError`
+- ✅ **Narrowed referral endpoint**: `GET /api/referral/{code}` now returns only `{referral_count}` (no name/queue_position) + 30/min rate limit
+- ✅ **Typography**: switched to SF Pro stack — `-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, ...` (real SF Pro on Apple, clean fallbacks elsewhere). Tighter heading letter-spacing, looser body line-height
+- ✅ **Spacing overhaul**: `py-32 lg:py-44` on Section, larger header (`h-24`), footer (`py-28`, `gap-16`), card padding (`p-8 lg:p-10`), grid gaps (`gap-7 lg:gap-8`)
+- ✅ **Testing agent**: 29/29 backend tests, all 14 frontend routes, EA + Contact forms verified
+
 ## Backlog / Next
-**P1 (pre-launch hardening)**
-- Auth on `/api/admin/*` endpoints (currently public)
-- Mongo unique index on `ref_code`, atomic counter for `queue_position` (currently racy under concurrent load)
-- `/api/referral/{code}` leaks signup name — consider returning only `referral_count`
-- Verify `slowapi` is reading `X-Forwarded-For` so rate limits are per-user, not global
-- Verify sender domain DKIM/SPF showing healthy in Resend dashboard
+**P1**
+- Verify DKIM/SPF for curlloom.co showing green in Resend dashboard (external check on user side)
+- Verify `slowapi` reads `X-Forwarded-For` so rate limits are per-user behind ingress proxy
+- Decide if `ADMIN_TOKEN` should fail startup loudly when missing in production
 
 **P2 (growth)**
 - Kickstarter landing block + launch pricing
