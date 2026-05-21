@@ -65,7 +65,7 @@ export default function Home() {
             <div className="lg:col-span-5 flex justify-center lg:justify-end">
               <div className="relative">
                 <div className="cl-orb" style={{ width: 350, height: 350, background: "#8B5CF6", opacity: 0.5, top: 30, left: 30 }} />
-                <Bottle size="lg" label="Leave-In" image={heroProduct?.image || "/brand/leave-in.png"} />
+                <Bottle size="lg" label="Leave-In" image={heroProduct?.image || null} />
               </div>
             </div>
           </div>

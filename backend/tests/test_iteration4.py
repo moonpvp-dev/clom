@@ -68,11 +68,12 @@ class TestPublicProducts:
         for s in ("leave-in-conditioner", "curl-cream", "gel", "mousse", "shampoo", "conditioner"):
             assert s in slugs, f"Missing seeded slug {s} in {slugs}"
 
-    def test_get_leave_in_returns_image_path(self, client):
+    def test_get_leave_in_image_is_none_iter5(self, client):
+        # Iter 5: image was reverted to None (CSS bottle placeholder)
         r = client.get(f"{API}/products/leave-in-conditioner")
         assert r.status_code == 200
         p = r.json()
-        assert p["image"] == "/brand/leave-in.png"
+        assert p["image"] is None
         assert "_id" not in p
         assert p["slug"] == "leave-in-conditioner"
 

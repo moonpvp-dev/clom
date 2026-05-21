@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Header, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Header, Depends, UploadFile, File, Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -10,6 +10,7 @@ import asyncio
 import logging
 import secrets
 import string
+import requests
 import resend
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
@@ -28,6 +29,48 @@ db = client[os.environ['DB_NAME']]
 resend.api_key = os.environ.get('RESEND_API_KEY', '')
 SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
 ADMIN_TOKEN = os.environ.get('ADMIN_TOKEN', '')
+EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
+
+# Object storage
+STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
+APP_NAME = "curlloom"
+_storage_key: Optional[str] = None
+
+def init_storage():
+    global _storage_key
+    if _storage_key:
+        return _storage_key
+    if not EMERGENT_LLM_KEY:
+        return None
+    try:
+        r = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_LLM_KEY}, timeout=30)
+        r.raise_for_status()
+        _storage_key = r.json()["storage_key"]
+        return _storage_key
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Storage init failed: {e}")
+        return None
+
+def storage_put(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    if not key:
+        raise HTTPException(503, "Object storage unavailable")
+    r = requests.put(f"{STORAGE_URL}/objects/{path}",
+                     headers={"X-Storage-Key": key, "Content-Type": content_type},
+                     data=data, timeout=120)
+    r.raise_for_status()
+    return r.json()
+
+def storage_get(path: str):
+    key = init_storage()
+    if not key:
+        raise HTTPException(503, "Object storage unavailable")
+    r = requests.get(f"{STORAGE_URL}/objects/{path}",
+                     headers={"X-Storage-Key": key}, timeout=60)
+    if r.status_code == 404:
+        raise HTTPException(404, "File not found")
+    r.raise_for_status()
+    return r.content, r.headers.get("Content-Type", "application/octet-stream")
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -99,6 +142,8 @@ async def on_startup():
             d["id"] = str(uuid.uuid4())
             d["created_at"] = datetime.now(timezone.utc).isoformat()
         await db.products.insert_many(defaults)
+    # Initialize object storage (best-effort; uploads will retry if this fails)
+    init_storage()
 
 
 # -------- Models --------
@@ -393,6 +438,44 @@ async def delete_product(slug: str, _: bool = Depends(require_admin)):
     if res.deleted_count == 0:
         raise HTTPException(404, "Not found")
     return {"status": "ok"}
+
+
+# ---- File uploads (admin) ----
+_ALLOWED_MIME = {"image/png", "image/jpeg", "image/webp", "image/gif"}
+_EXT_BY_MIME = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif"}
+
+@api_router.post("/admin/upload")
+async def upload_file(file: UploadFile = File(...), _: bool = Depends(require_admin)):
+    content_type = (file.content_type or "").lower()
+    if content_type not in _ALLOWED_MIME:
+        raise HTTPException(400, f"Unsupported type: {content_type}")
+    data = await file.read()
+    if len(data) > 8 * 1024 * 1024:  # 8 MB
+        raise HTTPException(413, "File too large (max 8 MB)")
+    ext = _EXT_BY_MIME[content_type]
+    path = f"{APP_NAME}/uploads/{uuid.uuid4()}.{ext}"
+    result = await asyncio.to_thread(storage_put, path, data, content_type)
+    final_path = result.get("path", path)
+    # Record in DB for tracking (not strictly required for serving)
+    await db.files.insert_one({
+        "id": str(uuid.uuid4()),
+        "storage_path": final_path,
+        "original_filename": file.filename,
+        "content_type": content_type,
+        "size": len(data),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    # Public URL the frontend can use directly in <img src>
+    return {"path": final_path, "url": f"/api/files/{final_path}", "size": len(data)}
+
+
+# Public file serving (product images are public — no auth)
+@api_router.get("/files/{path:path}")
+async def get_file(path: str):
+    data, content_type = await asyncio.to_thread(storage_get, path)
+    return Response(content=data, media_type=content_type, headers={
+        "Cache-Control": "public, max-age=31536000, immutable",
+    })
 
 
 # ---- Delete submission entries (generic catch-all — declared LAST) ----

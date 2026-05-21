@@ -1,0 +1,47 @@
+{
+  "summary": "Iteration 5 testing completed. Backend: 50/51 pytest passing (49 prior + 1 new minus 1 known bug). Frontend: hero CSS bottle renders without <img>, leave-in shop page only has logo <img>, early-access select is 58px (meets >=56), and the admin upload→save round trip works end-to-end (file picked → /api/files/... URL injected into pe-image → product persisted with new URL).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/files/{nonexistent-path}",
+        "issue": "Returns 500 instead of 404 when the object does not exist in Emergent object storage. Root cause: storage backend returns HTTP 500 (not 404) for missing keys, and storage_get() only special-cases status_code==404 — every other non-2xx falls through to r.raise_for_status() and surfaces as a 500. Mitigation: in /app/backend/server.py storage_get(), treat any 4xx/5xx from storage that signals 'not found' (or simply catch requests.HTTPError around the GET and raise HTTPException(404)) so unknown paths return a clean 404 per the spec."
+      },
+      {
+        "endpoint": "GET /api/files/{path}",
+        "issue": "Backend correctly sets Cache-Control: public, max-age=31536000, immutable (verified against localhost:8001), but Cloudflare/ingress in the preview env rewrites the header to 'no-store, no-cache, must-revalidate'. The header is still present so the iter5 spec is met, but the immutable caching benefit is lost behind the proxy. Infra concern, not a code bug."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration5.py",
+    "/app/backend/tests/test_iteration4.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iter5_results.xml"
+  ],
+  "action_items": [
+    "Wrap requests.HTTPError in storage_get() so any non-2xx from object storage maps to 404 for GET /api/files/{path} (currently returns 500 for missing objects).",
+    "Optional: investigate why Cloudflare ingress overrides Cache-Control on /api/files/* responses; consider serving images from a non-/api/ path or adding an explicit edge cache rule."
+  ],
+  "critical_code_review_comments": [
+    "init_storage() is invoked synchronously inside async endpoint handlers via storage_put/storage_get; it does network I/O at startup (good) but also relies on a non-thread-safe global _storage_key. Since startup populates it once it is effectively fine, but document the side-effect.",
+    "POST /api/admin/upload reads entire file into memory before checking size (8 MB cap). A streaming size guard (file.size or chunked read) would prevent memory pressure if an attacker sent the max body size repeatedly.",
+    "storage_get path is taken on every public file fetch — no in-process cache. Combined with Cloudflare stripping immutable cache headers, every /api/files/{path} request makes an upstream round trip to object storage. Consider a tiny LRU or letting the edge cache the response."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration5.py (new — 8 tests for upload + public serve + leave-in image None)",
+    "/app/backend/tests/test_iteration4.py (test_get_leave_in_image_is_none_iter5 replaces previous '/brand/leave-in.png' assertion)"
+  ],
+  "success_rate": {"backend": "98% (50/51)", "frontend": "100% (4/4 manual flows)"},
+  "test_credentials": "ADMIN_TOKEN read from /app/backend/.env (Kv9Up6myVI3C9WekNLy2bhhHM6sDbC17yO2kbQm8kJU). No other auth.",
+  "seed_data_creation": "Created 1 PNG upload via admin UI during the round-trip test; immediately reverted leave-in-conditioner.image back to null via admin PUT so the spec invariant (leave-in image == None) is restored.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Only outstanding bug is /api/files/{missing}->500 vs spec's 404. After E1 fixes storage_get's error mapping, re-run pytest backend/tests/test_iteration5.py — the single failing case is TestPublicFiles::test_get_nonexistent_file_returns_404. All UI flows (hero CSS bottle, leave-in shop page, EA select height >=56, admin upload→save) verified passing against the public REACT_APP_BACKEND_URL.",
+  "rca of the issue": "GET /api/files/{nonexistent} -> 500: Emergent object storage returns 500 for missing keys; server.py:64-73 storage_get only maps storage 404->FastAPI 404, then calls r.raise_for_status() for everything else, which bubbles a requests.HTTPError out of asyncio.to_thread and becomes a generic 500 Internal Server Error. Reproduction: curl -i https://curlloom-preview.preview.emergentagent.com/api/files/curlloom/uploads/$(uuidgen).png  ->  HTTP/2 500. Fix: try/except around the GET, or check r.status_code >= 400 and raise HTTPException(404, 'File not found') for any client/server error indicating missing object."
+}

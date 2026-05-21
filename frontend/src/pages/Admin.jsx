@@ -417,11 +417,11 @@ function ProductEditor({ token, initial, isNew, onClose, onSaved }) {
         </div>
 
         <div className="mt-7">
-          <PField label="Image URL (optional)">
-            <input data-testid="pe-image" value={p.image || ""} onChange={(e) => setField("image", e.target.value)}
-              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none"
-              placeholder="/brand/leave-in.png or https://…" />
-            <div className="text-[11px] text-zinc-500 mt-2">Leave empty to use the CSS bottle placeholder. Local files in /app/frontend/public/ can be referenced like <code>/brand/leave-in.png</code>.</div>
+          <PField label="Bottle image (optional)">
+            <ImageField token={token} value={p.image || ""} onChange={(v) => setField("image", v)} />
+            <div className="text-[11px] text-zinc-500 mt-2 leading-relaxed">
+              Upload a PNG, JPG, or WebP (max 8 MB), or paste a URL. Leave empty to use the CSS bottle placeholder.
+            </div>
           </PField>
         </div>
 
@@ -474,6 +474,64 @@ function PField({ label, children }) {
       <div className="text-[11px] uppercase tracking-[0.25em] text-zinc-400 mb-3">{label}</div>
       {children}
     </label>
+  );
+}
+
+function ImageField({ token, value, onChange }) {
+  const [uploading, setUploading] = useState(false);
+  const inputId = `upload-${Math.random().toString(36).slice(2)}`;
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { toast.error("Image must be under 8 MB"); return; }
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await fetch(`${API}/admin/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.detail || `Upload failed (${r.status})`);
+      }
+      const { url } = await r.json();
+      onChange(url);
+      toast.success("Image uploaded");
+    } catch (e) { toast.error(e.message); }
+    finally { setUploading(false); e.target.value = ""; }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-4">
+        {value && (
+          <div className="w-20 h-20 rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden flex-shrink-0">
+            <img src={value} alt="" className="max-w-full max-h-full object-contain" />
+          </div>
+        )}
+        <div className="flex-1 flex gap-2">
+          <label htmlFor={inputId}
+            className="cl-btn-secondary text-white rounded-full px-5 py-3 text-xs font-semibold uppercase flex items-center justify-center gap-2 cursor-pointer">
+            {uploading ? "Uploading…" : value ? "Replace" : "Upload image"}
+          </label>
+          <input id={inputId} data-testid="pe-image-upload" type="file" accept="image/png,image/jpeg,image/webp,image/gif"
+            onChange={handleUpload} disabled={uploading} className="hidden" />
+          {value && (
+            <button type="button" onClick={() => onChange("")}
+              className="px-4 py-2.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500/20 text-xs flex items-center gap-2">
+              <Trash2 size={12} /> Remove
+            </button>
+          )}
+        </div>
+      </div>
+      <input data-testid="pe-image" value={value} onChange={(e) => onChange(e.target.value)}
+        className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none font-mono text-xs"
+        placeholder="…or paste an image URL" />
+    </div>
   );
 }
 
