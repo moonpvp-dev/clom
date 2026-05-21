@@ -1,53 +1,52 @@
-import { useEffect } from "react";
-import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import { Toaster } from "@/components/ui/sonner";
+import Header from "@/components/site/Header";
+import Footer from "@/components/site/Footer";
+import NoiseOverlay from "@/components/site/NoiseOverlay";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import Home from "@/pages/Home";
+import Shop from "@/pages/Shop";
+import ProductDetail from "@/pages/ProductDetail";
+import Quiz from "@/pages/Quiz";
+import About from "@/pages/About";
+import Ingredients from "@/pages/Ingredients";
+import Testing from "@/pages/Testing";
+import Athletes from "@/pages/Athletes";
+import PermCare from "@/pages/PermCare";
+import FAQ from "@/pages/FAQ";
+import Contact from "@/pages/Contact";
+import Shipping from "@/pages/Shipping";
+import Privacy from "@/pages/Privacy";
+import Terms from "@/pages/Terms";
 
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
+import "@/App.css";
 
 function App() {
   return (
-    <div className="App">
-      <BrowserRouter>
+    <BrowserRouter>
+      <NoiseOverlay />
+      <Header />
+      <main className="relative z-10 min-h-screen pt-20">
         <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
+          <Route path="/" element={<Home />} />
+          <Route path="/shop" element={<Shop />} />
+          <Route path="/shop/:slug" element={<ProductDetail />} />
+          <Route path="/quiz" element={<Quiz />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/ingredients" element={<Ingredients />} />
+          <Route path="/testing" element={<Testing />} />
+          <Route path="/athletes" element={<Athletes />} />
+          <Route path="/perm-care" element={<PermCare />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/shipping" element={<Shipping />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
         </Routes>
-      </BrowserRouter>
-    </div>
+      </main>
+      <Footer />
+      <Toaster theme="dark" position="bottom-right" />
+    </BrowserRouter>
   );
 }
 
