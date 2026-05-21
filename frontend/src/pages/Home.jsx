@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import { useState } from "react";
-import { Sparkles, Droplets, Wind, Activity, FlaskConical, Microscope } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Sparkles, Droplets, Wind, Activity, FlaskConical, Microscope, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { api, PRODUCTS } from "@/lib/data";
 import Section from "@/components/site/Section";
@@ -259,31 +259,70 @@ function EarlyAccessForm() {
     name: "", email: "",
     hair_type: "Curly", main_concern: "Moisture",
     is_athlete: false, interested_in_testing: false,
+    referred_by: "",
   });
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
+  const [result, setResult] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  // Capture ?ref=CODE from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if (ref) setForm((f) => ({ ...f, referred_by: ref.toUpperCase() }));
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.email) return;
     setSubmitting(true);
     try {
-      await api.post("/early-access", form);
-      setDone(true);
-      toast.success("You're on the list. Check your inbox for a confirmation.");
+      const { data } = await api.post("/early-access", form);
+      setResult(data);
+      toast.success("You're on the list. Check your inbox.");
     } catch (err) {
-      toast.error("Something went wrong. Try again.");
+      const msg = err?.response?.status === 429
+        ? "Too many submissions — try again in a minute."
+        : "Something went wrong. Try again.";
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (done) {
+  const copyLink = async () => {
+    const link = `${window.location.origin}/?ref=${result.ref_code}`;
+    try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    catch { toast.error("Couldn't copy"); }
+  };
+
+  if (result) {
+    const link = `${window.location.origin}/?ref=${result.ref_code}`;
     return (
-      <div data-testid="early-access-success" className="cl-glass-strong rounded-3xl p-12 text-center max-w-2xl mx-auto">
-        <div className="w-14 h-14 mx-auto mb-5 rounded-full bg-violet-500/20 border border-violet-500/40 flex items-center justify-center text-violet-300 text-2xl">✓</div>
-        <h3 className="text-2xl font-bold text-white">You're in.</h3>
-        <p className="mt-3 text-zinc-400">Confirmation email is on its way. We'll be in touch as products move out of development.</p>
+      <div data-testid="early-access-success" className="cl-glass-strong rounded-3xl p-10 sm:p-12 text-center max-w-2xl mx-auto relative overflow-hidden">
+        <div className="cl-orb" style={{ width: 300, height: 300, background: "#8B5CF6", opacity: 0.25, top: -50, left: -50 }} />
+        <div className="relative">
+          <div className="w-14 h-14 mx-auto mb-5 rounded-full bg-violet-500/20 border border-violet-500/40 flex items-center justify-center text-violet-300 text-2xl">✓</div>
+          <h3 className="text-3xl font-bold text-white">You're #{result.queue_position} on the list.</h3>
+          <p className="mt-3 text-zinc-400">Confirmation email is on its way.</p>
+
+          <div className="mt-8 p-6 rounded-2xl bg-violet-500/[0.08] border border-violet-500/30 text-left">
+            <div className="text-[11px] tracking-[0.3em] uppercase text-violet-300 mb-3">Founders Circle</div>
+            <p className="text-sm text-zinc-300 leading-relaxed">
+              Share your code. Every signup using it moves you up the queue and earns Founders Circle status at launch.
+            </p>
+            <div className="mt-5 flex flex-col sm:flex-row items-stretch gap-2">
+              <div data-testid="ref-code" className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 font-mono text-violet-200 text-lg tracking-[0.2em] text-center">
+                {result.ref_code}
+              </div>
+              <button onClick={copyLink} data-testid="ref-copy"
+                className="cl-btn-primary text-white rounded-xl px-5 py-3 text-xs font-semibold tracking-wider uppercase flex items-center justify-center gap-2">
+                {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy link</>}
+              </button>
+            </div>
+            <div className="mt-3 text-xs text-zinc-500 break-all">{link}</div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -319,6 +358,12 @@ function EarlyAccessForm() {
         <Toggle testid="ea-athlete" label="Athlete / active lifestyle" value={form.is_athlete} onChange={(v) => setForm({ ...form, is_athlete: v })} />
         <Toggle testid="ea-tester" label="Interested in testing" value={form.interested_in_testing} onChange={(v) => setForm({ ...form, interested_in_testing: v })} />
       </div>
+
+      {form.referred_by && (
+        <div className="mt-5 inline-flex items-center gap-2 text-xs px-4 py-2 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-200" data-testid="ea-referred-by">
+          <Sparkles size={12} /> Referred by code: <span className="font-mono font-semibold">{form.referred_by}</span>
+        </div>
+      )}
 
       <button type="submit" disabled={submitting} data-testid="ea-submit"
         className="mt-8 w-full cl-btn-primary text-white rounded-full px-7 py-4 text-sm font-semibold tracking-wider uppercase disabled:opacity-50">

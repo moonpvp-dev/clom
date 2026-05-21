@@ -1,10 +1,15 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Request
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import os
 import asyncio
 import logging
+import secrets
+import string
 import resend
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
@@ -23,11 +28,29 @@ db = client[os.environ['DB_NAME']]
 resend.api_key = os.environ.get('RESEND_API_KEY', '')
 SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
 
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(title="CurlLoom API")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Background task registry (prevents GC of fire-and-forget tasks)
+_BG: set = set()
+def _spawn(coro):
+    t = asyncio.create_task(coro)
+    _BG.add(t)
+    t.add_done_callback(_BG.discard)
+    return t
+
+
+def _make_ref_code(n: int = 6) -> str:
+    alphabet = string.ascii_uppercase + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(n))
 
 
 # -------- Models --------
@@ -38,6 +61,7 @@ class EarlyAccessIn(BaseModel):
     main_concern: str
     is_athlete: bool = False
     interested_in_testing: bool = False
+    referred_by: Optional[str] = None
 
 class ContactIn(BaseModel):
     name: str
@@ -60,8 +84,8 @@ class WaitlistIn(BaseModel):
     product_name: str
 
 
-# -------- Email helper --------
-def _wrap_email(title: str, body_html: str) -> str:
+# -------- Email --------
+def _wrap(title: str, body: str) -> str:
     return f"""
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#0A0A0C;padding:40px 0;font-family:Helvetica,Arial,sans-serif;">
       <tr><td align="center">
@@ -72,7 +96,7 @@ def _wrap_email(title: str, body_html: str) -> str:
             </div>
           </td></tr>
           <tr><td style="font-size:24px;font-weight:700;color:#FAFAFA;padding-bottom:16px;">{title}</td></tr>
-          <tr><td style="font-size:15px;line-height:1.6;color:#A1A1AA;">{body_html}</td></tr>
+          <tr><td style="font-size:15px;line-height:1.6;color:#A1A1AA;">{body}</td></tr>
           <tr><td style="padding-top:32px;font-size:12px;color:#52525B;border-top:1px solid #27272A;padding-top:24px;margin-top:24px;">
             CurlLoom &middot; help@curlloom.co<br/>
             Cosmetic products only — not intended to diagnose, treat, cure, or prevent any disease.
@@ -82,16 +106,18 @@ def _wrap_email(title: str, body_html: str) -> str:
     </table>
     """
 
-async def send_email_safe(to: str, subject: str, html: str):
+async def send_email(to: str, subject: str, html: str):
     if not resend.api_key:
-        logger.warning("RESEND_API_KEY not set; skipping email")
         return None
     try:
         params = {"from": SENDER_EMAIL, "to": [to], "subject": subject, "html": html}
-        result = await asyncio.to_thread(resend.Emails.send, params)
-        return result
+        # Tight timeout so retries / rate limits cannot stack forever
+        return await asyncio.wait_for(asyncio.to_thread(resend.Emails.send, params), timeout=10)
+    except asyncio.TimeoutError:
+        logger.error(f"Email timed out to {to}")
+        return None
     except Exception as e:
-        logger.error(f"Email send failed: {e}")
+        logger.error(f"Email failed to {to}: {e}")
         return None
 
 
@@ -102,19 +128,41 @@ async def root():
 
 
 @api_router.post("/early-access")
-async def early_access(payload: EarlyAccessIn):
+@limiter.limit("5/minute")
+async def early_access(request: Request, payload: EarlyAccessIn):
+    ref_code = _make_ref_code()
+    # Ensure uniqueness (cheap loop)
+    while await db.early_access.find_one({"ref_code": ref_code}, {"_id": 1}):
+        ref_code = _make_ref_code()
+
+    # Count current signups for queue position
+    total = await db.early_access.count_documents({}) + 1
+
     doc = {
         "id": str(uuid.uuid4()),
         **payload.model_dump(),
+        "ref_code": ref_code,
+        "referral_count": 0,
+        "queue_position": total,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.early_access.insert_one(dict(doc))
 
-    html = _wrap_email(
-        "You're on the early access list.",
-        f"""<p>Hey {payload.name},</p>
-        <p>Thanks for joining CurlLoom early access. We're building lightweight, low-buildup curl care for real routines — and you'll be one of the first to hear when products are ready for testing.</p>
-        <p>We logged your preferences:</p>
+    # If they were referred, bump the referrer
+    if payload.referred_by:
+        await db.early_access.update_one(
+            {"ref_code": payload.referred_by.upper()},
+            {"$inc": {"referral_count": 1}},
+        )
+
+    html = _wrap(
+        f"You're #{total} on the list, {payload.name}.",
+        f"""<p>Thanks for joining CurlLoom early access. We're building lightweight, low-buildup curl care for real routines — and you'll be one of the first to hear when products are ready for testing.</p>
+        <p style="margin-top:24px;padding:16px;background:#1a1a20;border-radius:12px;border:1px solid #27272A;">
+          <strong style="color:#FAFAFA;">Founders Circle:</strong> Share your code <strong style="color:#8B5CF6;font-size:18px;">{ref_code}</strong> with friends. Every signup using your code moves you up the queue and earns Founders Circle status at launch.
+        </p>
+        <p style="margin-top:8px;font-size:13px;color:#71717a;">Your link: <span style="color:#A78BFA;">curlloom.co/?ref={ref_code}</span></p>
+        <p style="margin-top:24px;">Your preferences:</p>
         <ul style="color:#A1A1AA;line-height:1.8;">
           <li>Hair type: <span style="color:#FAFAFA;">{payload.hair_type}</span></li>
           <li>Main concern: <span style="color:#FAFAFA;">{payload.main_concern}</span></li>
@@ -123,12 +171,21 @@ async def early_access(payload: EarlyAccessIn):
         </ul>
         <p>Talk soon,<br/>The CurlLoom team</p>"""
     )
-    asyncio.create_task(send_email_safe(payload.email, "Welcome to CurlLoom early access", html))
-    return {"status": "ok", "id": doc["id"]}
+    _spawn(send_email(payload.email, "Welcome to CurlLoom early access", html))
+    return {"status": "ok", "id": doc["id"], "ref_code": ref_code, "queue_position": total}
+
+
+@api_router.get("/referral/{code}")
+async def referral_info(code: str):
+    doc = await db.early_access.find_one({"ref_code": code.upper()}, {"_id": 0, "name": 1, "referral_count": 1, "queue_position": 1})
+    if not doc:
+        raise HTTPException(404, "Code not found")
+    return doc
 
 
 @api_router.post("/contact")
-async def contact(payload: ContactIn):
+@limiter.limit("5/minute")
+async def contact(request: Request, payload: ContactIn):
     doc = {
         "id": str(uuid.uuid4()),
         **payload.model_dump(),
@@ -136,19 +193,20 @@ async def contact(payload: ContactIn):
     }
     await db.contacts.insert_one(dict(doc))
 
-    html = _wrap_email(
+    html = _wrap(
         "We got your message.",
         f"""<p>Hey {payload.name},</p>
         <p>Thanks for reaching out about <strong style="color:#FAFAFA;">{payload.reason}</strong>. A human from our team will get back to you soon at this address.</p>
-        <p style="color:#A1A1AA;font-style:italic;">"{payload.message[:300]}"</p>
+        <p style="color:#A1A1AA;font-style:italic;padding:16px;background:#1a1a20;border-radius:12px;border-left:3px solid #8B5CF6;">"{payload.message[:300]}"</p>
         <p>— CurlLoom</p>"""
     )
-    asyncio.create_task(send_email_safe(payload.email, "We received your message", html))
+    _spawn(send_email(payload.email, "We received your message", html))
     return {"status": "ok", "id": doc["id"]}
 
 
 @api_router.post("/quiz")
-async def quiz(payload: QuizIn):
+@limiter.limit("10/minute")
+async def quiz(request: Request, payload: QuizIn):
     doc = {
         "id": str(uuid.uuid4()),
         **payload.model_dump(),
@@ -157,10 +215,10 @@ async def quiz(payload: QuizIn):
     await db.quiz_results.insert_one(dict(doc))
 
     if payload.email:
-        html = _wrap_email(
+        html = _wrap(
             f"Your CurlLoom routine: {payload.routine_type}.",
             f"""<p>Based on your answers, we'd suggest the <strong style="color:#8B5CF6;">{payload.routine_type}</strong> as your starting point.</p>
-            <p>Quick recap of your answers:</p>
+            <p>Quick recap:</p>
             <ul style="color:#A1A1AA;line-height:1.8;">
               <li>Pattern: <span style="color:#FAFAFA;">{payload.hair_pattern}</span></li>
               <li>Porosity: <span style="color:#FAFAFA;">{payload.porosity}</span></li>
@@ -170,12 +228,13 @@ async def quiz(payload: QuizIn):
             </ul>
             <p>Products aren't launched yet — but you'll hear from us first.</p>"""
         )
-        asyncio.create_task(send_email_safe(payload.email, "Your CurlLoom routine match", html))
+        _spawn(send_email(payload.email, "Your CurlLoom routine match", html))
     return {"status": "ok", "id": doc["id"], "routine": payload.routine_type}
 
 
 @api_router.post("/waitlist")
-async def waitlist(payload: WaitlistIn):
+@limiter.limit("10/minute")
+async def waitlist(request: Request, payload: WaitlistIn):
     doc = {
         "id": str(uuid.uuid4()),
         **payload.model_dump(),
@@ -183,35 +242,31 @@ async def waitlist(payload: WaitlistIn):
     }
     await db.waitlist.insert_one(dict(doc))
 
-    html = _wrap_email(
+    html = _wrap(
         f"You're on the {payload.product_name} list.",
         f"""<p>Thanks for telling us you're interested in the <strong style="color:#FAFAFA;">{payload.product_name}</strong>.</p>
         <p>This product is still in development. We'll email you the moment it's ready for testing or launch.</p>
         <p>— CurlLoom</p>"""
     )
-    asyncio.create_task(send_email_safe(payload.email, f"You're on the {payload.product_name} waitlist", html))
+    _spawn(send_email(payload.email, f"You're on the {payload.product_name} waitlist", html))
     return {"status": "ok", "id": doc["id"]}
 
 
 @api_router.get("/admin/early-access")
 async def list_early_access():
-    items = await db.early_access.find({}, {"_id": 0}).to_list(1000)
-    return items
+    return await db.early_access.find({}, {"_id": 0}).to_list(1000)
 
 @api_router.get("/admin/contacts")
 async def list_contacts():
-    items = await db.contacts.find({}, {"_id": 0}).to_list(1000)
-    return items
+    return await db.contacts.find({}, {"_id": 0}).to_list(1000)
 
 @api_router.get("/admin/quiz")
 async def list_quiz():
-    items = await db.quiz_results.find({}, {"_id": 0}).to_list(1000)
-    return items
+    return await db.quiz_results.find({}, {"_id": 0}).to_list(1000)
 
 @api_router.get("/admin/waitlist")
 async def list_waitlist():
-    items = await db.waitlist.find({}, {"_id": 0}).to_list(1000)
-    return items
+    return await db.waitlist.find({}, {"_id": 0}).to_list(1000)
 
 
 app.include_router(api_router)
