@@ -79,11 +79,26 @@ async def on_startup():
     # Unique index on ref_code prevents duplicate codes under concurrency
     await db.early_access.create_index("ref_code", unique=True, sparse=True)
     await db.early_access.create_index("email")
+    await db.products.create_index("slug", unique=True)
     # Backfill counter to current count so newly issued positions don't collide
     existing = await db.counters.find_one({"_id": "early_access_position"})
     if existing is None:
         current = await db.early_access.count_documents({})
         await db.counters.insert_one({"_id": "early_access_position", "value": current})
+    # Seed default products if collection empty
+    if await db.products.count_documents({}) == 0:
+        defaults = [
+            {"slug": "leave-in-conditioner", "name": "Leave-In Conditioner", "short": "Lightweight daily moisture for curls, waves, coils, and perms.", "bestFor": "Daily hydration without buildup", "status": "In Development", "accent": "#8B5CF6", "image": "/brand/leave-in.png", "benefits": ["Helps soften hair", "Supports manageability", "Designed for low buildup", "Helps improve slip and spreadability", "Lightweight enough for active routines"], "who": "Curls, waves, coils, and permed hair that need daily moisture without weight.", "feel": "Watery-cream texture. Absorbs without stickiness.", "howTo": "Apply to damp hair, mid-lengths to ends. Scrunch or rake through. Style as usual.", "ingredients": ["Humectants (moisture)", "Lightweight emollients (slip)", "Conditioning polymers", "Preservatives (safety)", "Chelators (stability)"], "sort_order": 1},
+            {"slug": "curl-cream", "name": "Curl Cream", "short": "Definition and softness with flexible styling support.", "bestFor": "Soft definition with movement", "status": "Planned", "accent": "#A78BFA", "image": None, "benefits": ["Supports curl definition", "Helps soften strands", "Designed for flexible, touchable finish", "Low-buildup formulation approach"], "who": "Anyone seeking definition without crunch or heaviness.", "feel": "Smooth cream that melts in.", "howTo": "Apply to wet or damp hair. Rake, scrunch, or finger-coil.", "ingredients": ["Humectants", "Conditioning emollients", "Film-forming polymers", "Preservatives", "Chelators"], "sort_order": 2},
+            {"slug": "gel", "name": "Gel", "short": "Hold and performance — designed to form a cast that breaks cleanly.", "bestFor": "Long-lasting definition and hold", "status": "In Testing", "accent": "#7C3AED", "image": None, "benefits": ["Designed for clean cast that breaks softly", "Supports definition through the day", "Low-buildup design", "Lightweight feel"], "who": "Anyone who wants serious hold without flake or stickiness.", "feel": "Clear, slick gel. No tackiness once set.", "howTo": "Apply over leave-in or cream. Smooth in sections. Scrunch out crunch when dry.", "ingredients": ["Hold polymers", "Humectants", "Plasticizers (clean break)", "Preservatives", "Chelators"], "sort_order": 3},
+            {"slug": "mousse", "name": "Mousse", "short": "Volume and lightweight styling — air-feel finish.", "bestFor": "Volume and bounce", "status": "Planned", "accent": "#C4B5FD", "image": None, "benefits": ["Supports volume at root and lengths", "Lightweight, airy feel", "Low-residue design"], "who": "Fine to medium textures wanting body without heaviness.", "feel": "Whipped foam that disappears.", "howTo": "Dispense a palmful onto damp hair. Scrunch upward from ends.", "ingredients": ["Volumizing polymers", "Humectants", "Preservatives"], "sort_order": 4},
+            {"slug": "shampoo", "name": "Shampoo", "short": "Gentle cleansing — designed to be low-stripping.", "bestFor": "Routine cleansing without dryness", "status": "Planned", "accent": "#8B5CF6", "image": None, "benefits": ["Designed for gentle, low-strip cleansing", "Helps support scalp comfort", "Pairs with the rest of the routine"], "who": "Textured, curly, permed, and active hair types.", "feel": "Soft lather, clean rinse.", "howTo": "Apply to wet scalp. Massage gently. Rinse thoroughly.", "ingredients": ["Mild surfactants", "Conditioning agents", "Chelators", "Preservatives"], "sort_order": 5},
+            {"slug": "conditioner", "name": "Conditioner", "short": "Softness and detangling for everyday use.", "bestFor": "Slip and softness in-shower", "status": "Planned", "accent": "#A78BFA", "image": None, "benefits": ["Helps detangle", "Supports softness", "Low-buildup approach"], "who": "All textured hair, including permed strands.", "feel": "Silky, rinses clean.", "howTo": "Apply to wet hair after shampoo. Distribute. Rinse.", "ingredients": ["Conditioning emollients", "Cationic polymers", "Humectants", "Preservatives"], "sort_order": 6},
+        ]
+        for d in defaults:
+            d["id"] = str(uuid.uuid4())
+            d["created_at"] = datetime.now(timezone.utc).isoformat()
+        await db.products.insert_many(defaults)
 
 
 # -------- Models --------
@@ -115,6 +130,22 @@ class QuizIn(BaseModel):
 class WaitlistIn(BaseModel):
     email: EmailStr
     product_name: str
+
+
+class ProductIn(BaseModel):
+    slug: str
+    name: str
+    short: str
+    bestFor: str = ""
+    status: str = "Planned"
+    accent: str = "#8B5CF6"
+    image: Optional[str] = None
+    benefits: List[str] = []
+    who: str = ""
+    feel: str = ""
+    howTo: str = ""
+    ingredients: List[str] = []
+    sort_order: int = 0
 
 
 # -------- Email --------
@@ -306,6 +337,81 @@ async def list_quiz(_: bool = Depends(require_admin)):
 @api_router.get("/admin/waitlist")
 async def list_waitlist(_: bool = Depends(require_admin)):
     return await db.waitlist.find({}, {"_id": 0}).to_list(1000)
+
+
+# ---- Products (public + admin) ----
+# NOTE: Products routes MUST be declared BEFORE the generic /admin/{kind}/{item_id}
+# DELETE handler, otherwise FastAPI matches the catch-all first and returns
+# "Unknown collection" for product deletes.
+@api_router.get("/products")
+async def list_products():
+    return await db.products.find({}, {"_id": 0}).sort("sort_order", 1).to_list(200)
+
+@api_router.get("/products/{slug}")
+async def get_product(slug: str):
+    p = await db.products.find_one({"slug": slug}, {"_id": 0})
+    if not p:
+        raise HTTPException(404, "Not found")
+    return p
+
+@api_router.post("/admin/products")
+async def create_product(payload: ProductIn, _: bool = Depends(require_admin)):
+    from pymongo.errors import DuplicateKeyError
+    doc = {
+        "id": str(uuid.uuid4()),
+        **payload.model_dump(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        await db.products.insert_one(dict(doc))
+    except DuplicateKeyError:
+        raise HTTPException(409, "Slug already exists")
+    doc.pop("_id", None)
+    return doc
+
+@api_router.put("/admin/products/{slug}")
+async def update_product(slug: str, payload: ProductIn, _: bool = Depends(require_admin)):
+    update = payload.model_dump()
+    # If slug is being changed, ensure uniqueness
+    if update["slug"] != slug:
+        existing = await db.products.find_one({"slug": update["slug"]}, {"_id": 1})
+        if existing:
+            raise HTTPException(409, "New slug already in use")
+    res = await db.products.find_one_and_update(
+        {"slug": slug},
+        {"$set": update},
+        return_document=True,
+        projection={"_id": 0},
+    )
+    if not res:
+        raise HTTPException(404, "Not found")
+    return res
+
+@api_router.delete("/admin/products/{slug}")
+async def delete_product(slug: str, _: bool = Depends(require_admin)):
+    res = await db.products.delete_one({"slug": slug})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Not found")
+    return {"status": "ok"}
+
+
+# ---- Delete submission entries (generic catch-all — declared LAST) ----
+_DELETE_COLLECTIONS = {
+    "early-access": "early_access",
+    "contacts": "contacts",
+    "quiz": "quiz_results",
+    "waitlist": "waitlist",
+}
+
+@api_router.delete("/admin/{kind}/{item_id}")
+async def delete_submission(kind: str, item_id: str, _: bool = Depends(require_admin)):
+    coll = _DELETE_COLLECTIONS.get(kind)
+    if not coll:
+        raise HTTPException(404, "Unknown collection")
+    res = await db[coll].delete_one({"id": item_id})
+    if res.deleted_count == 0:
+        raise HTTPException(404, "Item not found")
+    return {"status": "ok"}
 
 
 app.include_router(api_router)

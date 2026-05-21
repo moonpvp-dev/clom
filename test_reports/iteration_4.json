@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 4 backend + frontend verified. 43/43 pytest pass (29 prior + 14 new iter4) after fixing a critical FastAPI route-ordering bug that made DELETE /api/admin/products/{slug} fall through to the generic /admin/{kind}/{item_id} catch-all and return 'Unknown collection' 404. Frontend admin: token sign-in works, stat-products visible, Products grid shows 9 cards with edit+delete buttons, Add Product opens empty editor, Edit opens product-editor modal with all 7 testid fields (pe-slug/name/short/status/image/benefits/ingredients) + pe-save. Public: /shop loads 6 products via API, /shop/leave-in-conditioner renders /brand/leave-in.png, home hero shows new bottle image, EA form padding is generous (p-14 = 56px).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration4.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iter4_full.xml"
+  ],
+  "action_items": [
+    "Route-ordering bug in /app/backend/server.py was FIXED by reordering product routes before the generic /admin/{kind}/{item_id} DELETE handler. Main agent should be aware: any future route added under /api/admin/<literal-prefix>/{id} MUST be declared BEFORE the catch-all DELETE handler or it will be shadowed."
+  ],
+  "critical_code_review_comments": [
+    "FIXED & merged: DELETE /admin/products/{slug} was shadowed by the earlier-declared DELETE /admin/{kind}/{item_id} catch-all — caught by curl probe returning {'detail':'Unknown collection'} 404. Reordered so product CRUD routes are declared first, then the catch-all. Added an inline NOTE comment in server.py to prevent regression.",
+    "Seed step uses insert_many after counting documents — safe one-time bootstrap; unique index on slug already created earlier so re-runs are no-ops.",
+    "ProductIn uses camelCase keys (bestFor, howTo) which is fine for Mongo persistence but mixes with snake_case elsewhere (sort_order, created_at). Consistency nit, not blocking.",
+    "POST/PUT /admin/products both call payload.model_dump() — sort_order defaults to 0 which would push new products to the top of the public sort. Consider validating sort_order >= existing-max or letting admin pick.",
+    "DELETE /admin/{kind}/{item_id} accepts any item_id string — no UUID validation. Mongo lookup is by exact match so it's safe, but a 400 on malformed IDs would be cleaner."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (reordered product routes before generic DELETE catch-all + inline comment)",
+    "/app/backend/tests/test_iteration4.py (new, 14 tests)"
+  ],
+  "success_rate": {"backend": "100% (43/43)", "frontend": "100% on tested flows (admin login, products grid, editor modal, submission delete buttons, public /shop, /shop/leave-in-conditioner, home hero)"},
+  "test_credentials": "ADMIN_TOKEN read from /app/backend/.env (Kv9Up6myVI3C9WekNLy2bhhHM6sDbC17yO2kbQm8kJU); see /app/memory/test_credentials.md",
+  "seed_data_creation": "Test products are created with slug=test-prod-<uuid8> and deleted in the same test. Submission round-trip tests create+delete in one test. Some leftover TEST_* contacts/quiz/waitlist/early-access rows remain from prior iterations (intentional, no cleanup required).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "/app/backend/tests/ now has two pytest files: backend_test.py (29 tests, iter 1-3) and test_iteration4.py (14 tests, iter 4 — products CRUD + submission delete). Run both with: export $(grep REACT_APP_BACKEND_URL /app/frontend/.env | xargs) && pytest /app/backend/tests/ -v --junitxml=/app/test_reports/pytest/results.xml . CRITICAL fix applied to server.py: product routes now declared BEFORE generic DELETE catch-all — keep this ordering if you add more product endpoints.",
+  "rca of the issue": "Bug: DELETE /api/admin/products/{slug} returned 404 {'detail':'Unknown collection'} even with valid admin token and existing slug. Repro: POST /api/admin/products to create a product, then DELETE /api/admin/products/<that-slug> with admin Bearer header. Expected 200 {status:ok}, observed 404. RCA: FastAPI matches routes in declaration order. The generic catch-all `@api_router.delete('/admin/{kind}/{item_id}')` was declared at line ~350, BEFORE the specific `@api_router.delete('/admin/products/{slug}')` at line ~406. Any DELETE under /admin/products/* matched the catch-all first, where 'products' is not in _DELETE_COLLECTIONS, so it raised HTTPException(404,'Unknown collection'). Mitigation applied: moved all four product routes (GET list, GET single, POST, PUT, DELETE) above the generic catch-all and added a comment header. Verified: pytest TestAdminProducts::test_full_create_update_delete_flow now passes; curl probe DELETE /api/admin/products/<slug> returns {status:ok}."
+}

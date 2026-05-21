@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { API } from "@/lib/data";
-import { Download, LogOut, Users, MessageSquare, ClipboardList, BellRing, RefreshCw, Search } from "lucide-react";
+import { Download, LogOut, Users, MessageSquare, ClipboardList, BellRing, RefreshCw, Search, Trash2, Edit3, Plus, Package, X } from "lucide-react";
 
 const TABS = [
-  { key: "early-access", label: "Early Access", path: "early-access", icon: Users, color: "#8B5CF6" },
-  { key: "contacts", label: "Contacts", path: "contacts", icon: MessageSquare, color: "#A78BFA" },
-  { key: "quiz", label: "Quiz Results", path: "quiz", icon: ClipboardList, color: "#7C3AED" },
-  { key: "waitlist", label: "Waitlist", path: "waitlist", icon: BellRing, color: "#C4B5FD" },
+  { key: "early-access", label: "Early Access", path: "early-access", icon: Users, color: "#8B5CF6", deletable: true },
+  { key: "contacts", label: "Contacts", path: "contacts", icon: MessageSquare, color: "#A78BFA", deletable: true },
+  { key: "quiz", label: "Quiz Results", path: "quiz", icon: ClipboardList, color: "#7C3AED", deletable: true },
+  { key: "waitlist", label: "Waitlist", path: "waitlist", icon: BellRing, color: "#C4B5FD", deletable: true },
+  { key: "products", label: "Products", path: "products", icon: Package, color: "#8B5CF6", isProducts: true },
 ];
 
 const STORAGE_KEY = "curlloom_admin_token";
@@ -18,74 +19,43 @@ export default function Admin() {
   const [authed, setAuthed] = useState(false);
   const [checking, setChecking] = useState(false);
 
-  // Auto-check on mount if token exists
-  useEffect(() => {
-    if (token && !authed) verify(token);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => { if (token && !authed) verify(token); /* eslint-disable-next-line */ }, []);
 
   const verify = async (t) => {
     setChecking(true);
     try {
-      const r = await fetch(`${API}/admin/early-access`, {
-        headers: { Authorization: `Bearer ${t}` },
-      });
-      if (r.ok) {
-        localStorage.setItem(STORAGE_KEY, t);
-        setAuthed(true);
-        return true;
-      }
+      const r = await fetch(`${API}/admin/early-access`, { headers: { Authorization: `Bearer ${t}` } });
+      if (r.ok) { localStorage.setItem(STORAGE_KEY, t); setAuthed(true); return true; }
       throw new Error(r.status === 401 ? "Invalid token" : "Server error");
-    } catch (e) {
-      toast.error(e.message || "Login failed");
-      return false;
-    } finally {
-      setChecking(false);
-    }
+    } catch (e) { toast.error(e.message || "Login failed"); return false; }
+    finally { setChecking(false); }
   };
 
-  const logout = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setToken("");
-    setAuthed(false);
-  };
+  const logout = () => { localStorage.removeItem(STORAGE_KEY); setToken(""); setAuthed(false); };
 
   if (!authed) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center px-6">
-        <form
-          onSubmit={(e) => { e.preventDefault(); verify(token); }}
-          className="cl-glass-strong rounded-3xl p-10 w-full max-w-md"
-          data-testid="admin-login"
-        >
+        <form onSubmit={(e) => { e.preventDefault(); verify(token); }}
+          className="cl-glass-strong rounded-3xl p-12 w-full max-w-md" data-testid="admin-login">
           <Link to="/" className="text-zinc-500 hover:text-white text-xs">← Back to site</Link>
-          <h1 className="mt-4 text-3xl font-bold text-white tracking-[-0.02em]">Admin</h1>
-          <p className="mt-3 text-sm text-zinc-400">Enter your admin token to access submissions.</p>
+          <h1 className="mt-5 text-3xl font-bold text-white tracking-[-0.02em]">Admin</h1>
+          <p className="mt-4 text-sm text-zinc-400 leading-[1.75]">Enter your admin token to access submissions and the product editor.</p>
 
-          <div className="mt-7">
-            <div className="text-[11px] uppercase tracking-widest text-zinc-400 mb-2">Token</div>
-            <input
-              type="password"
-              required
-              autoFocus
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
+          <div className="mt-9">
+            <div className="text-[11px] uppercase tracking-[0.25em] text-zinc-400 mb-3">Token</div>
+            <input type="password" required autoFocus value={token} onChange={(e) => setToken(e.target.value)}
               data-testid="admin-token-input"
-              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-sm placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none"
-              placeholder="Paste admin token"
-            />
+              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-5 py-4 text-white font-mono text-sm placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none"
+              placeholder="Paste admin token" />
           </div>
 
-          <button
-            type="submit"
-            disabled={checking || !token}
-            data-testid="admin-login-submit"
-            className="mt-7 w-full cl-btn-primary text-white rounded-full px-7 py-4 text-xs font-semibold uppercase disabled:opacity-50"
-          >
+          <button type="submit" disabled={checking || !token} data-testid="admin-login-submit"
+            className="mt-8 w-full cl-btn-primary text-white rounded-full px-7 py-4 text-xs font-semibold uppercase disabled:opacity-50">
             {checking ? "Verifying…" : "Sign in"}
           </button>
 
-          <p className="mt-6 text-[11px] text-zinc-500 leading-relaxed">
+          <p className="mt-7 text-[11px] text-zinc-500 leading-relaxed">
             Token lives in <code className="text-zinc-300">/app/backend/.env</code> as <code className="text-zinc-300">ADMIN_TOKEN</code>.
           </p>
         </form>
@@ -96,46 +66,42 @@ export default function Admin() {
   return <Dashboard token={token} onLogout={logout} />;
 }
 
+function authHeaders(token) { return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }; }
+
 function Dashboard({ token, onLogout }) {
   const [tab, setTab] = useState("early-access");
   const [data, setData] = useState({});
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
 
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const results = await Promise.all(
-        TABS.map(async (t) => {
+      const [subs, prods] = await Promise.all([
+        Promise.all(TABS.filter((t) => t.deletable).map(async (t) => {
           const r = await fetch(`${API}/admin/${t.path}`, { headers: { Authorization: `Bearer ${token}` } });
           return [t.key, r.ok ? await r.json() : []];
-        })
-      );
-      setData(Object.fromEntries(results));
-    } catch {
-      toast.error("Failed to load");
-    } finally {
-      setLoading(false);
-    }
+        })),
+        fetch(`${API}/products`).then((r) => r.ok ? r.json() : []),
+      ]);
+      setData(Object.fromEntries(subs));
+      setProducts(prods);
+    } catch { toast.error("Failed to load"); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { fetchAll(); /* eslint-disable-next-line */ }, []);
 
+  const counts = { ...Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v.length])), products: products.length };
   const current = data[tab] || [];
-  const filtered = !query
-    ? current
-    : current.filter((row) =>
-        Object.values(row).some((v) => String(v ?? "").toLowerCase().includes(query.toLowerCase()))
-      );
+  const filtered = !query ? current : current.filter((row) =>
+    Object.values(row).some((v) => String(v ?? "").toLowerCase().includes(query.toLowerCase()))
+  );
 
   const downloadCsv = () => {
     if (!current.length) return;
-    const cols = Array.from(
-      current.reduce((set, row) => {
-        Object.keys(row).forEach((k) => set.add(k));
-        return set;
-      }, new Set())
-    );
+    const cols = Array.from(current.reduce((set, row) => { Object.keys(row).forEach((k) => set.add(k)); return set; }, new Set()));
     const escape = (v) => {
       const s = v === null || v === undefined ? "" : String(v);
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -143,56 +109,51 @@ function Dashboard({ token, onLogout }) {
     const csv = [cols.join(","), ...current.map((row) => cols.map((c) => escape(row[c])).join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `curlloom-${tab}-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
+    const a = document.createElement("a"); a.href = url; a.download = `curlloom-${tab}-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
+  const deleteSubmission = async (kind, id) => {
+    if (!window.confirm("Delete this entry permanently?")) return;
+    try {
+      const r = await fetch(`${API}/admin/${kind}/${id}`, { method: "DELETE", headers: authHeaders(token) });
+      if (!r.ok) throw new Error();
+      toast.success("Deleted");
+      setData((d) => ({ ...d, [kind]: d[kind].filter((row) => row.id !== id) }));
+    } catch { toast.error("Delete failed"); }
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 py-16">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-12">
+    <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 py-20">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-14">
         <div>
           <div className="text-[11px] tracking-[0.3em] uppercase text-violet-300 mb-3">Admin</div>
-          <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-[-0.025em]">Submissions</h1>
+          <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-[-0.025em]">Dashboard</h1>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            data-testid="admin-refresh"
-            onClick={fetchAll}
-            className="cl-btn-secondary text-white rounded-full px-5 py-3 text-xs font-semibold uppercase flex items-center gap-2"
-          >
+          <button data-testid="admin-refresh" onClick={fetchAll}
+            className="cl-btn-secondary text-white rounded-full px-5 py-3 text-xs font-semibold uppercase flex items-center gap-2">
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
           </button>
-          <button
-            data-testid="admin-logout"
-            onClick={onLogout}
-            className="cl-btn-secondary text-white rounded-full px-5 py-3 text-xs font-semibold uppercase flex items-center gap-2"
-          >
+          <button data-testid="admin-logout" onClick={onLogout}
+            className="cl-btn-secondary text-white rounded-full px-5 py-3 text-xs font-semibold uppercase flex items-center gap-2">
             <LogOut size={14} /> Sign out
           </button>
         </div>
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-5 mb-12">
         {TABS.map((t) => {
           const Icon = t.icon;
-          const count = (data[t.key] || []).length;
+          const count = counts[t.key] ?? 0;
           const active = tab === t.key;
           return (
-            <button
-              key={t.key}
-              data-testid={`stat-${t.key}`}
-              onClick={() => setTab(t.key)}
-              className={`cl-glass rounded-3xl p-7 text-left transition-all hover:border-violet-500/30 ${active ? "border-violet-500/40 bg-violet-500/[0.04]" : ""}`}
-            >
+            <button key={t.key} data-testid={`stat-${t.key}`} onClick={() => setTab(t.key)}
+              className={`cl-glass rounded-3xl p-7 text-left transition-all hover:border-violet-500/30 ${active ? "border-violet-500/40 bg-violet-500/[0.04]" : ""}`}>
               <div className="flex items-start justify-between mb-5">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ background: `${t.color}22`, border: `1px solid ${t.color}55` }}
-                >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ background: `${t.color}22`, border: `1px solid ${t.color}55` }}>
                   <Icon size={18} style={{ color: t.color }} />
                 </div>
               </div>
@@ -203,29 +164,25 @@ function Dashboard({ token, onLogout }) {
         })}
       </div>
 
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6 items-stretch sm:items-center justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-          <input
-            data-testid="admin-search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={`Search ${TABS.find((t) => t.key === tab)?.label.toLowerCase()}…`}
-            className="w-full bg-white/[0.03] border border-white/10 rounded-full pl-11 pr-4 py-3 text-sm text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none"
-          />
-        </div>
-        <button
-          data-testid="admin-download"
-          onClick={downloadCsv}
-          disabled={!current.length}
-          className="cl-btn-primary text-white rounded-full px-6 py-3 text-xs font-semibold uppercase flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <Download size={14} /> Export CSV
-        </button>
-      </div>
-
-      <DataTable rows={filtered} tab={tab} />
+      {tab === "products" ? (
+        <ProductsEditor token={token} products={products} onReload={fetchAll} />
+      ) : (
+        <>
+          <div className="flex flex-col sm:flex-row gap-4 mb-7 items-stretch sm:items-center justify-between">
+            <div className="relative flex-1 max-w-md">
+              <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <input data-testid="admin-search" value={query} onChange={(e) => setQuery(e.target.value)}
+                placeholder={`Search ${TABS.find((t) => t.key === tab)?.label.toLowerCase()}…`}
+                className="w-full bg-white/[0.03] border border-white/10 rounded-full pl-11 pr-4 py-3 text-sm text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none" />
+            </div>
+            <button data-testid="admin-download" onClick={downloadCsv} disabled={!current.length}
+              className="cl-btn-primary text-white rounded-full px-6 py-3 text-xs font-semibold uppercase flex items-center justify-center gap-2 disabled:opacity-50">
+              <Download size={14} /> Export CSV
+            </button>
+          </div>
+          <DataTable rows={filtered} tab={tab} onDelete={(id) => deleteSubmission(tab, id)} />
+        </>
+      )}
     </div>
   );
 }
@@ -243,17 +200,11 @@ function fmtDate(s) {
   catch { return s; }
 }
 
-function DataTable({ rows, tab }) {
+function DataTable({ rows, tab, onDelete }) {
   if (!rows.length) {
-    return (
-      <div className="cl-glass rounded-3xl p-16 text-center text-zinc-500">
-        No submissions yet.
-      </div>
-    );
+    return <div className="cl-glass rounded-3xl p-16 text-center text-zinc-500">No submissions yet.</div>;
   }
-
   const cols = COLUMN_PRESETS[tab] || Object.keys(rows[0]).filter((k) => k !== "id");
-
   return (
     <div className="cl-glass rounded-3xl overflow-hidden" data-testid={`admin-table-${tab}`}>
       <div className="overflow-x-auto">
@@ -261,10 +212,11 @@ function DataTable({ rows, tab }) {
           <thead>
             <tr className="border-b border-white/5 bg-white/[0.02]">
               {cols.map((c) => (
-                <th key={c} className="text-left text-[11px] uppercase tracking-widest text-zinc-500 font-medium px-5 py-4 whitespace-nowrap">
+                <th key={c} className="text-left text-[11px] uppercase tracking-[0.2em] text-zinc-500 font-medium px-5 py-4 whitespace-nowrap">
                   {c.replace(/_/g, " ")}
                 </th>
               ))}
+              <th className="text-right text-[11px] uppercase tracking-[0.2em] text-zinc-500 font-medium px-5 py-4">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -275,6 +227,12 @@ function DataTable({ rows, tab }) {
                     <Cell value={row[c]} col={c} />
                   </td>
                 ))}
+                <td className="px-5 py-4 text-right">
+                  <button data-testid={`delete-${tab}-${row.id}`} onClick={() => onDelete(row.id)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500/20 text-xs">
+                    <Trash2 size={12} /> Delete
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -293,4 +251,239 @@ function Cell({ value, col }) {
   if (col === "queue_position") return <span className="font-mono text-white">#{value}</span>;
   if (col === "message") return <span title={value}>{value}</span>;
   return <span>{String(value)}</span>;
+}
+
+// ---------------- Products editor ----------------
+
+const STATUSES = ["In Development", "In Testing", "Coming Soon", "Planned"];
+const EMPTY_PRODUCT = {
+  slug: "", name: "", short: "", bestFor: "", status: "Planned",
+  accent: "#8B5CF6", image: "",
+  benefits: [], who: "", feel: "", howTo: "", ingredients: [], sort_order: 0,
+};
+
+function ProductsEditor({ token, products, onReload }) {
+  const [editing, setEditing] = useState(null); // product object or "new"
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-7">
+        <div className="text-sm text-zinc-400">{products.length} products. Manage what shows up on /shop.</div>
+        <button data-testid="product-new" onClick={() => setEditing({ ...EMPTY_PRODUCT, sort_order: products.length + 1 })}
+          className="cl-btn-primary text-white rounded-full px-6 py-3 text-xs font-semibold uppercase flex items-center gap-2">
+          <Plus size={14} /> Add product
+        </button>
+      </div>
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {products.map((p) => (
+          <div key={p.slug} className="cl-glass rounded-3xl p-7" data-testid={`product-row-${p.slug}`}>
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <div className="text-white font-bold text-lg tracking-[-0.02em]">{p.name}</div>
+                <div className="font-mono text-[11px] text-zinc-500 mt-1">{p.slug}</div>
+              </div>
+              <span className="text-[10px] uppercase tracking-[0.2em] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-300">{p.status}</span>
+            </div>
+            <p className="text-sm text-zinc-400 leading-[1.7] min-h-[40px]">{p.short}</p>
+            <div className="mt-5 flex gap-2">
+              <button data-testid={`product-edit-${p.slug}`} onClick={() => setEditing(p)}
+                className="flex-1 cl-btn-secondary text-white rounded-full px-4 py-2.5 text-xs font-semibold uppercase flex items-center justify-center gap-2">
+                <Edit3 size={12} /> Edit
+              </button>
+              <button data-testid={`product-delete-${p.slug}`}
+                onClick={async () => {
+                  if (!window.confirm(`Delete ${p.name}? This cannot be undone.`)) return;
+                  try {
+                    const r = await fetch(`${API}/admin/products/${p.slug}`, { method: "DELETE", headers: authHeaders(token) });
+                    if (!r.ok) throw new Error();
+                    toast.success("Product deleted"); onReload();
+                  } catch { toast.error("Delete failed"); }
+                }}
+                className="px-4 py-2.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500/20 text-xs flex items-center gap-2">
+                <Trash2 size={12} />
+              </button>
+            </div>
+          </div>
+        ))}
+        {products.length === 0 && (
+          <div className="col-span-full cl-glass rounded-3xl p-12 text-center text-zinc-500">No products yet. Click "Add product" to create one.</div>
+        )}
+      </div>
+
+      {editing && (
+        <ProductEditor
+          token={token}
+          initial={editing}
+          isNew={!editing.id}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); onReload(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ProductEditor({ token, initial, isNew, onClose, onSaved }) {
+  const [p, setP] = useState({
+    ...EMPTY_PRODUCT,
+    ...initial,
+    benefits: initial.benefits || [],
+    ingredients: initial.ingredients || [],
+  });
+  const [saving, setSaving] = useState(false);
+
+  const setField = (k, v) => setP((x) => ({ ...x, [k]: v }));
+
+  const save = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const url = isNew ? `${API}/admin/products` : `${API}/admin/products/${initial.slug}`;
+      const method = isNew ? "POST" : "PUT";
+      const body = JSON.stringify({
+        ...p,
+        sort_order: Number(p.sort_order) || 0,
+        benefits: p.benefits.filter(Boolean),
+        ingredients: p.ingredients.filter(Boolean),
+        image: p.image || null,
+      });
+      const r = await fetch(url, { method, headers: authHeaders(token), body });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.detail || "Save failed");
+      }
+      toast.success(isNew ? "Product created" : "Product updated");
+      onSaved();
+    } catch (e) { toast.error(e.message); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center overflow-y-auto p-4 sm:p-8" onClick={onClose}>
+      <form onSubmit={save} onClick={(e) => e.stopPropagation()}
+        className="cl-glass-strong rounded-3xl p-8 sm:p-12 max-w-3xl w-full my-8" data-testid="product-editor">
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <div className="text-[11px] tracking-[0.3em] uppercase text-violet-300 mb-2">{isNew ? "New" : "Edit"} product</div>
+            <h2 className="text-3xl font-bold text-white tracking-[-0.025em]">{isNew ? "Create product" : p.name || "Edit product"}</h2>
+          </div>
+          <button type="button" onClick={onClose} data-testid="product-editor-close"
+            className="w-10 h-10 rounded-full cl-glass flex items-center justify-center text-zinc-400 hover:text-white">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-7">
+          <PField label="Slug (URL)">
+            <input data-testid="pe-slug" required value={p.slug} onChange={(e) => setField("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
+              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none font-mono text-sm"
+              placeholder="leave-in-conditioner" />
+          </PField>
+          <PField label="Name">
+            <input data-testid="pe-name" required value={p.name} onChange={(e) => setField("name", e.target.value)}
+              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none"
+              placeholder="Leave-In Conditioner" />
+          </PField>
+        </div>
+
+        <div className="mt-7">
+          <PField label="Short tagline">
+            <input data-testid="pe-short" value={p.short} onChange={(e) => setField("short", e.target.value)}
+              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none"
+              placeholder="Lightweight daily moisture for curls…" />
+          </PField>
+        </div>
+
+        <div className="grid sm:grid-cols-3 gap-7 mt-7">
+          <PField label="Status">
+            <select data-testid="pe-status" value={p.status} onChange={(e) => setField("status", e.target.value)}
+              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-violet-500/50 focus:outline-none">
+              {STATUSES.map((s) => <option key={s} className="bg-[#121217]">{s}</option>)}
+            </select>
+          </PField>
+          <PField label="Accent color">
+            <div className="flex items-center gap-3">
+              <input type="color" value={p.accent} onChange={(e) => setField("accent", e.target.value)}
+                className="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/10 cursor-pointer" />
+              <input value={p.accent} onChange={(e) => setField("accent", e.target.value)}
+                className="flex-1 bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-sm focus:border-violet-500/50 focus:outline-none" />
+            </div>
+          </PField>
+          <PField label="Sort order">
+            <input type="number" value={p.sort_order} onChange={(e) => setField("sort_order", e.target.value)}
+              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-violet-500/50 focus:outline-none" />
+          </PField>
+        </div>
+
+        <div className="mt-7">
+          <PField label="Image URL (optional)">
+            <input data-testid="pe-image" value={p.image || ""} onChange={(e) => setField("image", e.target.value)}
+              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none"
+              placeholder="/brand/leave-in.png or https://…" />
+            <div className="text-[11px] text-zinc-500 mt-2">Leave empty to use the CSS bottle placeholder. Local files in /app/frontend/public/ can be referenced like <code>/brand/leave-in.png</code>.</div>
+          </PField>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-7 mt-7">
+          <PField label="Best for">
+            <input value={p.bestFor} onChange={(e) => setField("bestFor", e.target.value)}
+              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-violet-500/50 focus:outline-none"
+              placeholder="Daily hydration without buildup" />
+          </PField>
+          <PField label="Texture / feel">
+            <input value={p.feel} onChange={(e) => setField("feel", e.target.value)}
+              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-violet-500/50 focus:outline-none"
+              placeholder="Watery-cream texture…" />
+          </PField>
+        </div>
+
+        <div className="mt-7">
+          <PField label="Who it's for">
+            <textarea rows={2} value={p.who} onChange={(e) => setField("who", e.target.value)}
+              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none resize-none" />
+          </PField>
+        </div>
+
+        <div className="mt-7">
+          <PField label="How to use">
+            <textarea rows={2} value={p.howTo} onChange={(e) => setField("howTo", e.target.value)}
+              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none resize-none" />
+          </PField>
+        </div>
+
+        <ListField label="Benefits (one per line)" value={p.benefits} onChange={(v) => setField("benefits", v)} testid="pe-benefits" />
+        <ListField label="Ingredients (one per line)" value={p.ingredients} onChange={(v) => setField("ingredients", v)} testid="pe-ingredients" />
+
+        <div className="mt-10 flex gap-3 justify-end">
+          <button type="button" onClick={onClose}
+            className="cl-btn-secondary text-white rounded-full px-7 py-4 text-xs font-semibold uppercase">Cancel</button>
+          <button type="submit" disabled={saving} data-testid="pe-save"
+            className="cl-btn-primary text-white rounded-full px-7 py-4 text-xs font-semibold uppercase disabled:opacity-50">
+            {saving ? "Saving…" : isNew ? "Create product" : "Save changes"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function PField({ label, children }) {
+  return (
+    <label className="block">
+      <div className="text-[11px] uppercase tracking-[0.25em] text-zinc-400 mb-3">{label}</div>
+      {children}
+    </label>
+  );
+}
+
+function ListField({ label, value, onChange, testid }) {
+  return (
+    <div className="mt-7">
+      <PField label={label}>
+        <textarea data-testid={testid} rows={4} value={value.join("\n")} onChange={(e) => onChange(e.target.value.split("\n"))}
+          className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none resize-none font-mono text-sm" />
+      </PField>
+    </div>
+  );
 }

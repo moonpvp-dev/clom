@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Sparkles, Droplets, Wind, Activity, FlaskConical, Microscope, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
-import { api, PRODUCTS } from "@/lib/data";
+import { api, fetchProducts } from "@/lib/data";
 import Section from "@/components/site/Section";
 import Swirl from "@/components/site/Swirl";
 import Bottle from "@/components/site/Bottle";
@@ -27,6 +27,10 @@ const PHILOSOPHY = [
 ];
 
 export default function Home() {
+  const [products, setProducts] = useState([]);
+  useEffect(() => { fetchProducts().then(setProducts).catch(() => {}); }, []);
+  const heroProduct = products.find((p) => p.slug === "leave-in-conditioner");
+
   return (
     <>
       {/* HERO */}
@@ -61,7 +65,7 @@ export default function Home() {
             <div className="lg:col-span-5 flex justify-center lg:justify-end">
               <div className="relative">
                 <div className="cl-orb" style={{ width: 350, height: 350, background: "#8B5CF6", opacity: 0.5, top: 30, left: 30 }} />
-                <Bottle size="lg" label="Leave-In" />
+                <Bottle size="lg" label="Leave-In" image={heroProduct?.image || "/brand/leave-in.png"} />
               </div>
             </div>
           </div>
@@ -118,13 +122,13 @@ export default function Home() {
       {/* PRODUCT PREVIEW */}
       <Section eyebrow="Future products" title="A complete routine, in development." lead="Six products designed to work together. Status shown is honest — some are still in formulation.">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-7 lg:gap-8">
-          {PRODUCTS.map((p) => (
+          {products.map((p) => (
             <Link key={p.slug} to={`/shop/${p.slug}`} data-testid={`product-card-${p.slug}`} className="group cl-glass rounded-3xl p-8 lg:p-10 hover:border-violet-500/30 transition-all">
               <div className="flex items-start justify-between mb-8">
                 <StatusBadge status={p.status} />
               </div>
               <div className="flex justify-center mb-8">
-                <Bottle accent={p.accent} label={p.name.split(" ")[0]} size="sm" />
+                <Bottle accent={p.accent} label={p.name.split(" ")[0]} size="sm" image={p.image} />
               </div>
               <div className="text-xl lg:text-2xl font-bold text-white tracking-[-0.02em]">{p.name}</div>
               <p className="mt-3 text-sm text-zinc-400 leading-[1.75] min-h-[48px]">{p.short}</p>
@@ -323,49 +327,49 @@ function EarlyAccessForm() {
   }
 
   return (
-    <form onSubmit={submit} className="cl-glass-strong rounded-3xl p-8 sm:p-10 max-w-3xl mx-auto" data-testid="early-access-form">
-      <div className="grid sm:grid-cols-2 gap-5">
+    <form onSubmit={submit} className="cl-glass-strong rounded-3xl p-10 sm:p-14 max-w-3xl mx-auto" data-testid="early-access-form">
+      <div className="grid sm:grid-cols-2 gap-8 sm:gap-10">
         <Field label="Name">
           <input data-testid="ea-name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none transition"
+            className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-5 py-4 text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none transition"
             placeholder="Your name" />
         </Field>
         <Field label="Email">
           <input data-testid="ea-email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none transition"
+            className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-5 py-4 text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none transition"
             placeholder="you@email.com" />
         </Field>
         <Field label="Hair type">
           <select data-testid="ea-hair-type" value={form.hair_type} onChange={(e) => setForm({ ...form, hair_type: e.target.value })}
-            className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-violet-500/50 focus:outline-none transition">
+            className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-5 py-4 text-white focus:border-violet-500/50 focus:outline-none transition">
             {["Straight", "Wavy", "Curly", "Coily", "Permed", "Unsure"].map((t) => <option key={t} className="bg-[#121217]">{t}</option>)}
           </select>
         </Field>
         <Field label="Main concern">
           <select data-testid="ea-concern" value={form.main_concern} onChange={(e) => setForm({ ...form, main_concern: e.target.value })}
-            className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-violet-500/50 focus:outline-none transition">
+            className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-5 py-4 text-white focus:border-violet-500/50 focus:outline-none transition">
             {["Moisture", "Hold", "Frizz", "Buildup", "Scalp Comfort", "Definition", "Damage", "Other"].map((t) => <option key={t} className="bg-[#121217]">{t}</option>)}
           </select>
         </Field>
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-3">
+      <div className="mt-10 flex flex-wrap gap-4">
         <Toggle testid="ea-athlete" label="Athlete / active lifestyle" value={form.is_athlete} onChange={(v) => setForm({ ...form, is_athlete: v })} />
         <Toggle testid="ea-tester" label="Interested in testing" value={form.interested_in_testing} onChange={(v) => setForm({ ...form, interested_in_testing: v })} />
       </div>
 
       {form.referred_by && (
-        <div className="mt-5 inline-flex items-center gap-2 text-xs px-4 py-2 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-200" data-testid="ea-referred-by">
+        <div className="mt-7 inline-flex items-center gap-2 text-xs px-4 py-2 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-200" data-testid="ea-referred-by">
           <Sparkles size={12} /> Referred by code: <span className="font-mono font-semibold">{form.referred_by}</span>
         </div>
       )}
 
       <button type="submit" disabled={submitting} data-testid="ea-submit"
-        className="mt-8 w-full cl-btn-primary text-white rounded-full px-7 py-4 text-sm font-semibold tracking-wider uppercase disabled:opacity-50">
+        className="mt-12 w-full cl-btn-primary text-white rounded-full px-7 py-5 text-sm font-semibold uppercase disabled:opacity-50">
         {submitting ? "Submitting…" : "Join Early Access"}
       </button>
 
-      <p className="mt-5 text-[11px] text-zinc-500 leading-relaxed">
+      <p className="mt-7 text-[11px] text-zinc-500 leading-relaxed">
         By submitting, you agree to receive emails from CurlLoom. We'll never sell your info. Cosmetic products only — not intended to diagnose, treat, cure, or prevent any disease.
       </p>
     </form>
