@@ -38,11 +38,6 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 pt-24 pb-36 lg:pt-40 lg:pb-48 relative">
           <div className="grid lg:grid-cols-12 gap-16 items-center">
             <div className="lg:col-span-7">
-              <div className="inline-flex items-center gap-2 cl-glass rounded-full px-5 py-2 mb-9">
-                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
-                <span className="text-[11px] tracking-[0.3em] uppercase text-zinc-300">Early access open</span>
-              </div>
-
               <h1 data-testid="hero-headline" className="text-5xl sm:text-6xl lg:text-7xl xl:text-[88px] font-bold text-white leading-[1.02] tracking-[-0.035em]">
                 Lightweight Curl Care
                 <br />
